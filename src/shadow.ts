@@ -10,6 +10,7 @@ export interface TreeItem {
 }
 
 const REF_PREFIX = 'refs/turnback/s/';
+const RAW_ATTRIBUTES = '* -text -eol -filter -ident -working-tree-encoding\n';
 
 /**
  * Separate bare git repo (`GIT_DIR`) whose work-tree is the project folder.
@@ -26,12 +27,17 @@ export class ShadowRepo {
   }
 
   init(): void {
-    if (existsSync(this.gitDir)) return;
-    mkdirSync(this.dataDir, { recursive: true });
-    const r = spawnSync('git', ['init', '--bare', this.gitDir], { encoding: 'utf8', timeout: 10_000 });
-    if (r.status !== 0) throw new Error(r.stderr || 'git init failed');
-    mkdirSync(path.join(this.gitDir, 'info'), { recursive: true });
-    writeFileSync(path.join(this.gitDir, 'info', 'exclude'), [...EXCLUDED_DIRS].map(d => `${d}/\n`).join(''));
+    const attributes = path.join(this.gitDir, 'info', 'attributes');
+    if (existsSync(attributes)) return;
+    if (!existsSync(this.gitDir)) {
+      mkdirSync(this.dataDir, { recursive: true });
+      const r = spawnSync('git', ['init', '--bare', this.gitDir], { encoding: 'utf8', timeout: 10_000 });
+      if (r.status !== 0) throw new Error(r.stderr || 'git init failed');
+      mkdirSync(path.join(this.gitDir, 'info'), { recursive: true });
+      writeFileSync(path.join(this.gitDir, 'info', 'exclude'), [...EXCLUDED_DIRS].map(d => `${d}/\n`).join(''));
+    }
+    // Store bytes as they are: this file overrides the project's .gitattributes (text, eol, filters).
+    writeFileSync(attributes, RAW_ATTRIBUTES);
   }
 
   /** Ref whose tree is currently loaded in the index, so `read-tree` can be skipped. */

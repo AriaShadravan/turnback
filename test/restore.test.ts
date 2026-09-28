@@ -35,6 +35,17 @@ describe('snapshot and restore', () => {
     expect(readFileSync(p.file('.git/HEAD'))).toEqual(gitHead);
   });
 
+  it('keeps original bytes when the project .gitattributes normalizes line endings', () => {
+    p.write('.gitattributes', '* text=auto eol=lf\n');
+    p.write('a.txt', 'one\r\ntwo\r\n');
+    expect(hook(p.root, 'shell', 't1', { command: 'edit' })?.status).toBe('ok');
+    p.write('a.txt', 'changed\r\n');
+    hook(p.root, 'turn-end');
+
+    applyRestore(new Store(p.root), 't1');
+    expect(p.read('a.txt')).toBe('one\r\ntwo\r\n');
+  });
+
   it('rejects a stale token and can skip files edited manually', () => {
     p.write('a.txt', 'before');
     hook(p.root, 'edit', 't1', { paths: [p.file('a.txt')] });
