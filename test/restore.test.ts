@@ -116,12 +116,4 @@ describe('snapshot and restore', () => {
     applyRestore(s, 't1', { paths: [viaAlias], token: plan.token });
     expect(p.read('a.txt')).toBe('before');
   });
-
-  it('records a failed snapshot instead of throwing', () => {
-    p.write('a.txt', 'x');
-    const s = new Store(p.root);
-    mkdirSync(s.dir, { recursive: true });
-    writeFileSync(s.repo.gitDir, 'broken shadow git');
-    expect(s.snapshot('baseline', { agent: 'codex', session: 's', turn: 't1' }, ['a.txt']).status).toBe('failed');
-  });
 });

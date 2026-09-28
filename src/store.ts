@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, readFileSync, lstatSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, lstatSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import {
   EDITS_ONLY_BYTES, editsOnlyFiles, GC_INTERVAL_MS, LOCK_TIMEOUT_MS, RETENTION, WARM_WAIT_MS,
@@ -11,6 +11,7 @@ import type { Entry, EntryKind, EntryOrigin, Mode, NewEntry, Turn } from './type
 import { Workspace, type Scan } from './workspace.js';
 
 const WARM_ORIGIN: EntryOrigin = { agent: 'turnback', session: 'warm', turn: 'warm' };
+const CORRUPT_PREFIX = 'corrupt-';
 
 export interface TurnSummary {
   id: string;
@@ -84,10 +85,23 @@ export class Store {
 
   // ---- Snapshot ----
 
-  /** Snapshot under the lock. Failures or lock timeouts are recorded in the journal, not thrown. */
+  /**
+   * Snapshot under the lock. Failures or lock timeouts are recorded in the journal, not thrown.
+   * If the snapshot failed because the shadow repo is corrupt, it is moved aside and the
+   * snapshot is retried once on a fresh repo, which then serves as the new baseline.
+   */
   snapshot(kind: EntryKind, origin: EntryOrigin, scope?: string[]): Entry {
     try {
-      return this.locked(() => this.snapshotLocked(kind, origin, scope));
+      return this.locked(() => {
+        try {
+          return this.snapshotLocked(kind, origin, scope);
+        } catch (e) {
+          if (!this.repo.isCorrupt()) throw e;
+          const folder = this.quarantine();
+          this.log({ ...originFields(origin), kind: 'repair', status: 'ok', note: `Corrupt shadow repo moved to ${folder}: ${e}` });
+          return this.snapshotLocked(kind, origin, scope);
+        }
+      });
     } catch (e) {
       return this.log({ ...originFields(origin), kind, status: e instanceof LockTimeoutError ? 'skipped' : 'failed', note: String(e) });
     }
@@ -126,6 +140,20 @@ export class Store {
 
     const ref = this.repo.commit(kind);
     return this.log({ ...originFields(origin), kind, ref, status: 'ok', note: skippedNote(skipped) });
+  }
+
+  /**
+   * Move the unusable shadow repo and its journal into `corrupt-<time>/`; nothing is deleted.
+   * The lock file stays in place, so other processes keep waiting on the same lock.
+   */
+  private quarantine(): string {
+    const folder = path.join(this.dir, `${CORRUPT_PREFIX}${new Date().toISOString().replace(/[:.]/g, '-')}`);
+    mkdirSync(folder, { recursive: true });
+    for (const name of ['repo.git', 'journal.jsonl', 'index-ref']) {
+      const from = path.join(this.dir, name);
+      if (existsSync(from)) renameSync(from, path.join(folder, name));
+    }
+    return folder;
   }
 
   relativePaths(paths: string[]): string[] {
@@ -242,6 +270,9 @@ export class Store {
       lastGc: entries.findLast(e => e.kind === 'gc' && e.status === 'ok')?.time,
       skippedFiles: scan.skipped,
       failures: entries.filter(e => e.status !== 'ok').slice(-20),
+      corrupt: existsSync(this.dir)
+        ? readdirSync(this.dir).filter(name => name.startsWith(CORRUPT_PREFIX)).map(name => path.join(this.dir, name))
+        : [],
     };
   }
 

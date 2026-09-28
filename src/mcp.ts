@@ -53,7 +53,8 @@ export function createServer(): McpServer {
   }, async ({ workspace }) => {
     try {
       const status = storeFor(workspace).status();
-      return result(status, `${status.turns} turns; mode ${status.mode}; ${status.failures.length} recent skipped or failed snapshots`);
+      const corrupt = status.corrupt.length ? `; ${status.corrupt.length} corrupt shadow repo(s) moved aside` : '';
+      return result(status, `${status.turns} turns; mode ${status.mode}; ${status.failures.length} recent skipped or failed snapshots${corrupt}`);
     } catch (e) { return failure(e); }
   });
 

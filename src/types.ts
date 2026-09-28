@@ -19,6 +19,7 @@ export type EntryKind =
   | HookKind
   | 'baseline'
   | 'warm'
+  | 'repair'
   | 'pre-restore'
   | 'post-restore'
   | 'restore'

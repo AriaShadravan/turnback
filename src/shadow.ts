@@ -134,6 +134,21 @@ export class ShadowRepo {
     return ref;
   }
 
+  /**
+   * The repo cannot be used: the git dir is not a repository, objects reachable from refs are
+   * missing, or the index is unreadable. A check that cannot run at all (git missing, timeout)
+   * counts as healthy, so data is never moved aside for reasons outside the repo.
+   */
+  isCorrupt(): boolean {
+    if (!existsSync(this.gitDir)) return false;
+    for (const args of [['fsck', '--no-progress', '--connectivity-only', '--no-dangling'], ['ls-files', '--stage']]) {
+      const r = spawnSync('git', this.baseArgs(args), { cwd: this.root, timeout: 120_000, stdio: 'ignore' });
+      if (r.error) return false;
+      if (r.status !== 0) return true;
+    }
+    return false;
+  }
+
   refExists(ref: string): boolean {
     return this.check(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
   }
