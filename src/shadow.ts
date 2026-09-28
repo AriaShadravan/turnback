@@ -12,8 +12,8 @@ export interface TreeItem {
 const REF_PREFIX = 'refs/turnback/s/';
 
 /**
- * Repo git bare terpisah (`GIT_DIR`) dengan work-tree = folder proyek.
- * Repo `.git` milik pengguna tidak pernah disentuh.
+ * Separate bare git repo (`GIT_DIR`) whose work-tree is the project folder.
+ * The user's own `.git` repo is never touched.
  */
 export class ShadowRepo {
   readonly gitDir: string;
@@ -34,12 +34,12 @@ export class ShadowRepo {
     writeFileSync(path.join(this.gitDir, 'info', 'exclude'), [...EXCLUDED_DIRS].map(d => `${d}/\n`).join(''));
   }
 
-  /** Ref yang isinya sedang dimuat di index, supaya `read-tree` bisa dilewati. */
+  /** Ref whose tree is currently loaded in the index, so `read-tree` can be skipped. */
   get indexRef(): string | undefined {
     try { return readFileSync(this.indexRefFile, 'utf8').trim() || undefined; } catch { return undefined; }
   }
 
-  /** Muat tree `ref` ke index; tanpa `ref`, kosongkan index. */
+  /** Load the tree of `ref` into the index; without `ref`, empty the index. */
   load(ref?: string): void {
     if (ref && ref === this.indexRef) return;
     this.run(ref ? ['read-tree', ref] : ['read-tree', '--empty']);
@@ -53,7 +53,7 @@ export class ShadowRepo {
     this.withPathspec(['rm', '-f', '--cached', '--ignore-unmatch'], paths);
   }
 
-  /** Path yang berbeda dari index: berubah, terhapus, untracked, atau gitignored. */
+  /** Paths that differ from the index: modified, deleted, untracked, or gitignored. */
   changedPaths(): string[] {
     return [
       ...this.list(['diff-files', '--name-only', '-z']),
@@ -62,7 +62,7 @@ export class ShadowRepo {
     ];
   }
 
-  /** Index sama persis dengan work-tree, kecuali untracked yang dikecualikan atau terlalu besar. */
+  /** Index matches the work-tree exactly, except untracked files that are excluded or too large. */
   indexMatches(ref: string, excluded: (rel: string) => boolean): boolean {
     if (this.indexRef !== ref) return false;
     if (!this.check(['diff-files', '--quiet'])) return false;
@@ -80,7 +80,7 @@ export class ShadowRepo {
     return true;
   }
 
-  /** Simpan index sebagai commit tanpa parent dan beri ref baru. */
+  /** Save the index as a parentless commit and give it a new ref. */
   commit(message: string): string {
     const tree = this.run(['write-tree']).trim();
     const commit = this.run(['commit-tree', tree, '-m', message]).trim();
@@ -118,7 +118,7 @@ export class ShadowRepo {
     return r.stdout;
   }
 
-  /** Panjang ID objek repo ini: 40 (SHA-1) atau 64 (SHA-256). */
+  /** Object ID length of this repo: 40 (SHA-1) or 64 (SHA-256). */
   objectIdLength(): number {
     this.oidLength ??= this.run(['hash-object', '--stdin'], '').trim().length;
     return this.oidLength;
@@ -147,7 +147,7 @@ export class ShadowRepo {
     });
     if (process.env.TURNBACK_TRACE_GIT) process.stderr.write(`git ${args[0]} ${Math.round(performance.now() - start)}ms\n`);
     if (r.error?.message.includes('ETIMEDOUT')) {
-      try { unlinkSync(path.join(this.gitDir, 'index.lock')); } catch { /* tidak ada lock */ }
+      try { unlinkSync(path.join(this.gitDir, 'index.lock')); } catch { /* no lock */ }
     }
     if (r.status !== 0) throw new Error(`git ${args[0]}: ${(r.stderr || r.error?.message || '').trim()}`);
     return r.stdout;
@@ -162,14 +162,14 @@ export class ShadowRepo {
   }
 
   /**
-   * Git melaporkan dan menafsirkan path relatif terhadap folder kerja proses, jadi setiap
-   * perintah dijalankan dari root workspace, bukan dari folder kerja hook.
+   * Git reports and interprets paths relative to the process working folder, so every
+   * command runs from the workspace root, not from the hook's working folder.
    */
   private baseArgs(args: string[]): string[] {
     return [`--git-dir=${this.gitDir}`, `--work-tree=${this.root}`, '-c', 'core.autocrlf=false', '-c', 'core.longpaths=true', ...args];
   }
 
-  /** Daftar path panjang dikirim lewat file supaya tidak melewati batas panjang baris perintah. */
+  /** Long path lists are passed through a file to stay under the command line length limit. */
   private withPathspec(args: string[], paths: string[]): void {
     if (!paths.length) return;
     const file = path.join(this.dataDir, `paths-${randomUUID()}`);
@@ -177,7 +177,7 @@ export class ShadowRepo {
       writeFileSync(file, paths.join('\0') + '\0');
       this.run([...args, `--pathspec-from-file=${file}`, '--pathspec-file-nul']);
     } finally {
-      try { unlinkSync(file); } catch { /* sudah terhapus */ }
+      try { unlinkSync(file); } catch { /* already deleted */ }
     }
   }
 }

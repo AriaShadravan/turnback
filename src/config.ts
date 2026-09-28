@@ -8,7 +8,7 @@ export const VERSION = '0.1.0';
 
 export const MAX_FILE_BYTES = 5 * 1024 * 1024;
 export const EDITS_ONLY_BYTES = 2 * 1024 ** 3;
-/** Batas jumlah file sebelum workspace pindah ke mode edits-only. Bisa diubah untuk tes. */
+/** File count limit before a workspace switches to edits-only mode. Overridable for tests. */
 export const editsOnlyFiles = () => Number(process.env.TURNBACK_MAX_FILES || 100_000);
 
 export const LOCK_TIMEOUT_MS = 30_000;
@@ -17,7 +17,7 @@ export const WARM_WAIT_MS = 30_000;
 export const GC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 export const RETENTION = { days: 7, turns: 50 };
 
-/** Direktori yang bisa dibangun ulang, tidak pernah di-snapshot atau disentuh restore. */
+/** Rebuildable directories, never snapshotted or touched by restore. */
 export const EXCLUDED_DIRS = new Set([
   '.git', '.turnback', 'node_modules', '.venv', 'venv', '__pycache__', 'dist', 'build',
   'target', '.next', '.nuxt', '.cache', 'coverage', '.turbo', '.gradle',
@@ -27,7 +27,7 @@ export const dataHome = () => process.env.TURNBACK_HOME || path.join(homedir(), 
 
 export const sha256 = (data: string | Buffer) => createHash('sha256').update(data).digest('hex');
 
-/** Kunci path yang stabil lintas penulisan (Windows: huruf kecil, garis miring maju). */
+/** Path key that is stable across spellings (Windows: lowercase, forward slashes). */
 export function pathKey(p: string): string {
   const abs = path.resolve(p);
   return process.platform === 'win32' ? abs.replaceAll('\\', '/').toLowerCase() : abs;
@@ -35,7 +35,7 @@ export function pathKey(p: string): string {
 
 const roots = new Map<string, string>();
 
-/** Root workspace: toplevel git kalau ada, selain itu cwd. */
+/** Workspace root: the git toplevel if any, otherwise cwd. */
 export function workspaceRoot(cwd: string): string {
   const cached = roots.get(cwd);
   if (cached) return cached;
@@ -45,7 +45,7 @@ export function workspaceRoot(cwd: string): string {
   return root;
 }
 
-/** Workspace yang memuat sebuah file, dihitung dari folder terdekat yang sudah ada (file baru mungkin belum punya folder). */
+/** Workspace containing a file, resolved from the nearest existing folder (a new file may not have its folder yet). */
 export function workspaceRootForFile(file: string): string {
   let dir = path.dirname(path.resolve(file));
   while (!existsSync(dir) && path.dirname(dir) !== dir) dir = path.dirname(dir);
@@ -57,7 +57,7 @@ export function isInside(root: string, file: string): boolean {
   return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
 }
 
-/** Folder data Turnback untuk satu workspace. */
+/** Turnback data folder for one workspace. */
 export const workspaceDataDir = (root: string) => path.join(dataHome(), sha256(pathKey(root)).slice(0, 24));
 
 export function sleep(ms: number): void {

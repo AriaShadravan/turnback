@@ -5,7 +5,7 @@ import type { Entry, NewEntry } from './types.js';
 
 export const turnKey = (e: Pick<Entry, 'agent' | 'session' | 'turn'>) => `${e.agent}:${e.session}:${e.turn}`;
 
-/** Journal JSONL append-only. Baris yang terpotong diabaikan saat dibaca. */
+/** Append-only JSONL journal. Truncated lines are ignored when reading. */
 export class Journal {
   constructor(private readonly file: string) {}
 

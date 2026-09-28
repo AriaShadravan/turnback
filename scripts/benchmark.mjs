@@ -1,4 +1,4 @@
-// Ukur latensi hook pada repo sintetis 10 ribu file. Dilaporkan di CI, bukan gerbang keras.
+// Measure hook latency on a synthetic 10k-file repo. Reported in CI, not a hard gate.
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

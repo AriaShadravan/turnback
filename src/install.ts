@@ -5,21 +5,21 @@ import path from 'node:path';
 import type { Agent } from './types.js';
 
 const AGENTS: Agent[] = ['claude', 'codex', 'gemini', 'cursor'];
-/** Penanda entri milik Turnback, supaya install ulang dan uninstall tidak menyentuh entri lain. */
+/** Marks entries owned by Turnback, so reinstall and uninstall never touch other entries. */
 const MARKER = 'turnback:';
 const TOML_BLOCK = /\n?# turnback begin[\s\S]*?# turnback end\n?/g;
 
 interface AgentSpec {
-  /** Folder konfigurasi, di home (level pengguna) atau root proyek. */
+  /** Config folder, in home (user level) or the project root. */
   dir: string;
   hooksFile: string;
-  /** Event hook → matcher tool (kosong = semua). */
+  /** Hook event → tool matcher (empty = all). */
   events: Record<string, string>;
-  /** Satuan timeout berbeda: Gemini memakai milidetik, yang lain detik. */
+  /** Timeout units differ: Gemini uses milliseconds, the others seconds. */
   timeout: number;
-  /** Cursor menyimpan hook sebagai daftar datar `{ command }`, bukan grup `{ hooks: [...] }`. */
+  /** Cursor stores hooks as a flat `{ command }` list, not `{ hooks: [...] }` groups. */
   flat: boolean;
-  /** Lokasi pendaftaran server MCP; `inline` = di file hook yang sama. */
+  /** Where the MCP server is registered; `inline` = in the same hook file. */
   mcp: 'inline' | { file: (base: string, project: boolean) => string; format: 'json' | 'toml' };
 }
 
@@ -58,7 +58,7 @@ const SPECS: Record<Agent, AgentSpec> = {
   },
 };
 
-/** Pasang hook dan server MCP. Konfigurasi lain dipertahankan; memanggil ulang tidak menggandakan entri. */
+/** Install hooks and the MCP server. Other config is kept; calling again does not duplicate entries. */
 export function install(which: string, project: boolean, root: string, cli: string, withMcp = true): string[] {
   requireGit();
   const touched: string[] = [];
@@ -86,7 +86,7 @@ export function install(which: string, project: boolean, root: string, cli: stri
   return touched;
 }
 
-/** Hapus hanya entri milik Turnback. */
+/** Remove only entries owned by Turnback. */
 export function uninstall(which: string, project: boolean, root: string): string[] {
   const touched: string[] = [];
   for (const agent of selectAgents(which)) {
@@ -131,7 +131,7 @@ function hookEntry(agent: Agent, spec: AgentSpec, event: string, matcher: string
 
 const isTurnback = (hook: any) => String(hook?.name || hook?.command).includes(MARKER);
 
-/** Buang entri Turnback dari daftar hook satu event; grup yang jadi kosong ikut dibuang. */
+/** Drop Turnback entries from one event's hook list; groups left empty are dropped too. */
 function withoutTurnback(spec: AgentSpec, groups: unknown): any[] {
   if (!Array.isArray(groups)) return [];
   if (spec.flat) return groups.filter(g => !isTurnback(g));
@@ -149,7 +149,7 @@ function writeToml(file: string, cli: string): void {
   writeFileSync(file, `${old.replace(TOML_BLOCK, '\n').trimEnd()}\n\n${block}`);
 }
 
-/** File yang ada tapi tidak bisa dibaca sebagai JSON tidak ditimpa, supaya konfigurasi pengguna tidak hilang. */
+/** An existing file that cannot be parsed as JSON is never overwritten, so user config is not lost. */
 function readJson(file: string): any {
   if (!existsSync(file)) return {};
   const text = readFileSync(file, 'utf8');

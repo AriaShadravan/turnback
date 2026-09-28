@@ -6,15 +6,15 @@ import { originFields, Store } from './store.js';
 import type { Entry, HookEvent } from './types.js';
 
 /**
- * Terapkan aturan snapshot untuk satu event hook:
- * - tool pengubah pertama dalam giliran mengambil baseline,
- * - edit berikutnya hanya men-snapshot path terkait,
- * - perintah shell men-snapshot seluruh tree,
- * - akhir giliran men-snapshot hasilnya.
- * Pada mode `edits-only`, shell tidak di-snapshot dan semua snapshot dibatasi pada path edit.
+ * Apply the snapshot rules for one hook event:
+ * - the first mutating tool in a turn takes the baseline,
+ * - later edits snapshot only the affected paths,
+ * - shell commands snapshot the whole tree,
+ * - the end of the turn snapshots the result.
+ * In `edits-only` mode, shell is not snapshotted and every snapshot is limited to edit paths.
  *
- * Edit dicatat di workspace yang memuat filenya, bukan selalu di folder kerja sesi, supaya
- * file di proyek lain tetap terlindungi. Perintah shell tetap memakai folder kerja sesi.
+ * Edits are recorded in the workspace that contains the file, not always the session's working
+ * folder, so files in other projects stay protected. Shell commands still use the session folder.
  */
 export function record(event: HookEvent): Entry | undefined {
   const home = new Store(event.cwd);
@@ -67,7 +67,7 @@ function recordChange(store: Store, event: HookEvent, turn: Entry[]): Entry {
     return takeBaseline(store, event, editsOnly);
   }
   if (event.kind === 'edit' && (editsOnly || !hadShell(turn))) {
-    // Simpan hasil edit sebelumnya dan isi path yang akan diubah sekarang.
+    // Save the result of the previous edit and the content of the paths about to change.
     const previous = turn.findLast(e => e.paths?.length);
     return store.snapshot('edit', origin, [...(previous?.paths ?? []), ...(event.paths ?? [])]);
   }
@@ -102,8 +102,8 @@ function endTurn(store: Store, event: HookEvent, turn: Entry[]): Entry {
 }
 
 /**
- * Workspace lain yang disentuh edit dalam giliran ini, disimpan di folder data workspace sesi.
- * Saat giliran berakhir, workspace itu ikut mendapat snapshot akhir giliran.
+ * Other workspaces touched by edits in this turn, stored in the session workspace's data folder.
+ * When the turn ends, those workspaces get an end-of-turn snapshot too.
  */
 const foreignFile = (home: Store) => path.join(home.dir, 'foreign-turns.json');
 
@@ -129,5 +129,5 @@ function takeForeignRoots(home: Store, event: HookEvent): string[] {
   return roots.filter(root => workspaceRoot(root) !== home.root);
 }
 
-/** Adapter hanya mengisi `command` untuk event shell. */
+/** Adapters fill `command` only for shell events. */
 const hadShell = (turn: Entry[]) => turn.some(e => e.command !== undefined);

@@ -41,7 +41,7 @@ function output(value: unknown): void {
   process.stdout.write(typeof value === 'string' ? value + '\n' : JSON.stringify(value, null, 2) + '\n');
 }
 
-/** Titik masuk hook: selalu menjawab "izinkan", apa pun yang terjadi saat merekam. */
+/** Hook entry point: always answers "allow", whatever happens while recording. */
 async function runHook(agent: Agent): Promise<void> {
   let response = hookResponse(agent);
   try {
@@ -133,7 +133,7 @@ function logHookError(error: unknown): void {
     mkdirSync(dir, { recursive: true });
     const now = new Date().toISOString();
     appendFileSync(path.join(dir, `${now.slice(0, 10)}.log`), `${now} ${String(error)}\n`);
-  } catch { /* hook tetap fail-open */ }
+  } catch { /* hooks stay fail-open */ }
 }
 
 main().catch(e => {

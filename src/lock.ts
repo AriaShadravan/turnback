@@ -8,7 +8,7 @@ export class LockTimeoutError extends Error {
 
 const lockFile = (dir: string) => path.join(dir, 'lock');
 
-/** Jalankan `fn` sambil memegang lock file per workspace. Lock yang lebih tua dari 60 detik dianggap basi. */
+/** Run `fn` while holding the per-workspace lock file. Locks older than 60 seconds are considered stale. */
 export function withLock<T>(dir: string, timeoutMs: number, fn: () => T): T {
   mkdirSync(dir, { recursive: true });
   const file = lockFile(dir);
@@ -28,11 +28,11 @@ export function withLock<T>(dir: string, timeoutMs: number, fn: () => T): T {
   try {
     return fn();
   } finally {
-    try { unlinkSync(file); } catch { /* proses lain sudah membersihkan lock basi */ }
+    try { unlinkSync(file); } catch { /* another process already cleaned up the stale lock */ }
   }
 }
 
-/** Tunggu sampai tidak ada yang memegang lock, atau batas waktu habis. */
+/** Wait until nobody holds the lock, or the timeout expires. */
 export function waitForUnlock(dir: string, timeoutMs: number): void {
   const file = lockFile(dir);
   const start = Date.now();
@@ -45,7 +45,7 @@ function removeIfStale(file: string): boolean {
     unlinkSync(file);
     return true;
   } catch {
-    // Lock hilang di antara dua panggilan: coba ambil lagi.
+    // Lock vanished between the two calls: try to take it again.
     return !existsSync(file);
   }
 }

@@ -12,10 +12,10 @@ const TURN_END = new Set(['Stop', 'AfterAgent', 'stop']);
 const BEFORE_TOOL = new Set(['PreToolUse', 'BeforeTool', 'preToolUse', 'beforeShellExecution']);
 const SHELL_TOOLS = new Set(['Bash', 'PowerShell', 'Shell', 'run_shell_command', 'exec_command']);
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'apply_patch', 'write_file', 'replace', 'Delete', 'StrReplace']);
-/** Event Cursor yang wajib dijawab dengan izin eksplisit; output kosong bisa memblokir tool. */
+/** Cursor events that must be answered with an explicit permission; empty output can block the tool. */
 const CURSOR_PERMISSION_EVENTS = new Set(['preToolUse', 'beforeShellExecution', 'beforeSubmitPrompt']);
 
-/** Terjemahkan payload hook agen ke `HookEvent`, atau `undefined` untuk event yang tidak relevan. */
+/** Translate an agent hook payload into a `HookEvent`, or `undefined` for irrelevant events. */
 export function parseHook(agent: Agent, p: Payload, fallbackCwd = process.cwd()): HookEvent | undefined {
   const event = String(p.hook_event_name || p.event || '');
   const tool = String(p.tool_name || '');
@@ -36,7 +36,7 @@ export function parseHook(agent: Agent, p: Payload, fallbackCwd = process.cwd())
   };
 }
 
-/** Respons "izinkan" untuk tiap agen. Hook Turnback tidak pernah memblokir tool. */
+/** "Allow" response for each agent. Turnback hooks never block a tool. */
 export function hookResponse(agent: Agent, event?: string): string {
   return agent === 'cursor' && (!event || CURSOR_PERMISSION_EVENTS.has(event)) ? '{"permission":"allow"}' : '{}';
 }
@@ -62,14 +62,14 @@ function toolPaths(tool: string, input: Payload, command: string): string[] {
 }
 
 /**
- * Agen tanpa ID giliran (Gemini, sebagian payload Claude Code) memakai ID lokal per sesi:
- * dibuat baru saat giliran dimulai, lalu dibaca oleh event berikutnya.
+ * Agents without a turn ID (Gemini, some Claude Code payloads) use a local per-session ID:
+ * created when a turn starts, then read by the following events.
  */
 function localTurn(cwd: string, session: string, renew: boolean): string {
   const dir = workspaceDataDir(workspaceRoot(cwd));
   const file = path.join(dir, `active-${encodeURIComponent(session).replaceAll('%', '_')}.json`);
   if (!renew && existsSync(file)) {
-    try { return JSON.parse(readFileSync(file, 'utf8')).turn; } catch { /* buat baru */ }
+    try { return JSON.parse(readFileSync(file, 'utf8')).turn; } catch { /* create a new one */ }
   }
   const turn = randomUUID();
   mkdirSync(dir, { recursive: true });

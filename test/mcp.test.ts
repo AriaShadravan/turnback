@@ -5,7 +5,7 @@ import { CLI, hook, tempProject } from './helpers.js';
 
 let p: ReturnType<typeof tempProject>;
 
-/** Satu giliran Codex yang mengubah a.txt dari "old" ke "agent". */
+/** One Codex turn that changes a.txt from "old" to "agent". */
 beforeEach(() => {
   p = tempProject('turnback-mcp-');
   p.write('a.txt', 'old');

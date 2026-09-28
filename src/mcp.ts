@@ -63,8 +63,8 @@ export function createServer(): McpServer {
 }
 
 /**
- * Restore lewat MCP selalu dua langkah: panggilan tanpa token hanya mengembalikan rencana.
- * File yang mungkin diedit manual hanya ditimpa kalau pengguna menyetujuinya lewat elicitation.
+ * Restore over MCP is always two-step: a call without a token only returns the plan.
+ * Files that may have been edited manually are overwritten only if the user approves via elicitation.
  */
 function registerRestoreTool(server: McpServer, name: 'restore' | 'redo', description: string): void {
   server.registerTool(name, {
@@ -89,7 +89,7 @@ function registerRestoreTool(server: McpServer, name: 'restore' | 'redo', descri
       if (token !== plan.token) throw new Error('Stale or invalid confirmation token');
 
       const uncertain = plan.actions.filter(a => a.uncertain);
-      // Belum dijawab → tanya sekali. Decline/cancel dihormati sebagai jawaban, bukan ditanya ulang.
+      // Not answered yet → ask once. Decline/cancel is honored as an answer, not asked again.
       const answer = inputResponse(ctx.mcpReq.inputResponses, 'approve');
       const capabilities = (ctx.mcpReq.envelope as Record<string, { elicitation?: unknown }> | undefined)?.[CLIENT_CAPABILITIES_META_KEY];
       if (uncertain.length && capabilities?.elicitation && answer.kind === 'missing') {
@@ -97,7 +97,7 @@ function registerRestoreTool(server: McpServer, name: 'restore' | 'redo', descri
           inputRequests: {
             approve: inputRequired.elicit({
               message: `Turnback will overwrite ${uncertain.length} file(s) that may contain manual edits: ${uncertain.map(a => a.path).join(', ')}. Accept to overwrite, Decline to skip them.`,
-              // Tombol Accept sudah berarti setuju; field tidak wajib supaya form bisa langsung dikirim.
+              // The Accept button alone means approval; the field is optional so the form can be submitted as is.
               requestedSchema: { type: 'object', properties: { approve: { type: 'boolean', title: 'Overwrite these files', default: true } } },
             }),
           },

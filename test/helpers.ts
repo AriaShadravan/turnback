@@ -7,7 +7,7 @@ import type { HookEvent } from '../src/types.js';
 
 export const CLI = path.resolve('dist/cli.js');
 
-/** Proyek git sementara dengan TURNBACK_HOME terpisah. */
+/** Temporary git project with a separate TURNBACK_HOME. */
 export function tempProject(prefix = 'turnback-test-') {
   const root = mkdtempSync(path.join(tmpdir(), prefix));
   const home = mkdtempSync(path.join(tmpdir(), `${prefix}data-`));
@@ -22,7 +22,7 @@ export function tempProject(prefix = 'turnback-test-') {
   };
 }
 
-/** Rekam satu event hook Codex untuk giliran `turn`. */
+/** Record one Codex hook event for turn `turn`. */
 export function hook(root: string, kind: HookEvent['kind'], turn = 't1', extra: Partial<HookEvent> = {}) {
   return record({ agent: 'codex', session: 's', turn, cwd: root, kind, ...extra });
 }

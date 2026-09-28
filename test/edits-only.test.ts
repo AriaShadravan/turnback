@@ -27,7 +27,7 @@ it('restores only paths recorded by edit hooks', () => {
   expect(hook(p.root, 'edit', 't1', { paths: [p.file('new.txt')] })?.status).toBe('ok');
   p.write('new.txt', 'created');
   expect(hook(p.root, 'turn-end')?.status).toBe('ok');
-  // Perubahan yang tidak lewat hook edit tidak tercatat, jadi restore tidak boleh menyentuhnya.
+  // Changes that bypass edit hooks are not recorded, so restore must not touch them.
   p.write('b.txt', 'unrecorded');
 
   const s = new Store(p.root);

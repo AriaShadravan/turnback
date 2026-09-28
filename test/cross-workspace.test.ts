@@ -5,7 +5,7 @@ import { applyRestore, planRestore } from '../src/restore.js';
 import { Store } from '../src/store.js';
 import { hook, tempProject } from './helpers.js';
 
-// Sesi agen berjalan di `session`, tetapi agen mengedit file di proyek lain (`other`).
+// The agent session runs in `session`, but the agent edits a file in another project (`other`).
 let session: ReturnType<typeof tempProject>;
 let other: ReturnType<typeof tempProject>;
 

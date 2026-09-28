@@ -28,7 +28,7 @@ export interface GcOptions {
   keepTurns?: number;
 }
 
-/** Semua data Turnback untuk satu workspace: journal, shadow repo, dan mode perekaman. */
+/** All Turnback data for one workspace: journal, shadow repo, and recording mode. */
 export class Store {
   readonly root: string;
   readonly dir: string;
@@ -63,8 +63,8 @@ export class Store {
   // ---- Mode ----
 
   /**
-   * `edits-only` dipakai untuk workspace di atas 100 ribu file atau 2 GB: hanya path
-   * yang disentuh tool edit yang di-snapshot. Mode ini ditetapkan oleh `warm` dan disimpan.
+   * `edits-only` is used for workspaces above 100k files or 2 GB: only paths touched
+   * by edit tools are snapshotted. The mode is decided by `warm` and persisted.
    */
   mode(): Mode {
     try {
@@ -84,7 +84,7 @@ export class Store {
 
   // ---- Snapshot ----
 
-  /** Snapshot dengan lock. Gagal atau lock habis waktu dicatat di journal, tidak dilempar. */
+  /** Snapshot under the lock. Failures or lock timeouts are recorded in the journal, not thrown. */
   snapshot(kind: EntryKind, origin: EntryOrigin, scope?: string[]): Entry {
     try {
       return this.locked(() => this.snapshotLocked(kind, origin, scope));
@@ -94,9 +94,9 @@ export class Store {
   }
 
   /**
-   * Simpan keadaan workspace sebagai commit baru. Tanpa `scope`, seluruh tree dibandingkan
-   * dengan snapshot sebelumnya; dengan `scope`, hanya path itu yang diperbarui di index.
-   * Harus dipanggil di dalam lock.
+   * Save the workspace state as a new commit. Without `scope`, the whole tree is compared
+   * with the previous snapshot; with `scope`, only those paths are updated in the index.
+   * Must be called inside the lock.
    */
   snapshotLocked(kind: EntryKind, origin: EntryOrigin, scope?: string[]): Entry {
     this.repo.init();
@@ -151,9 +151,9 @@ export class Store {
     return { add, remove, skipped };
   }
 
-  // ---- Baseline di latar belakang ----
+  // ---- Background baseline ----
 
-  /** Snapshot pertama yang mahal, dijalankan di latar belakang saat install dan awal sesi. */
+  /** The expensive first snapshot, run in the background on install and session start. */
   warm(): Entry {
     try {
       const scan = this.workspace.scan();
@@ -169,8 +169,8 @@ export class Store {
   }
 
   /**
-   * Tunggu warm selesai, lalu kembalikan snapshot terakhir kalau masih sama dengan work-tree.
-   * Dengan begitu baseline giliran tidak perlu snapshot baru.
+   * Wait for warm to finish, then return the last snapshot if it still matches the work-tree.
+   * That way the turn baseline does not need a new snapshot.
    */
   waitWarm(): string | undefined {
     waitForUnlock(this.dir, WARM_WAIT_MS);
@@ -183,9 +183,9 @@ export class Store {
     }
   }
 
-  // ---- Riwayat giliran ----
+  // ---- Turn history ----
 
-  /** Giliran agen yang punya baseline, terbaru lebih dulu. Giliran yang sudah di-gc tidak ikut. */
+  /** Agent turns that have a baseline, newest first. Turns removed by gc are excluded. */
   turns(): Turn[] {
     const expired = new Set(this.expiredTurns());
     const groups = new Map<string, Entry[]>();
@@ -211,7 +211,7 @@ export class Store {
     return turns.reverse();
   }
 
-  /** Cari giliran dari ID lengkap (`agen:sesi:giliran`) atau ID giliran saja. */
+  /** Find a turn by full ID (`agent:session:turn`) or by turn ID alone. */
   findTurn(id: string): Turn | undefined {
     return this.turns().find(t => t.id === id || t.id.endsWith(':' + id));
   }
@@ -228,7 +228,7 @@ export class Store {
     return { turn: turn.id, diff };
   }
 
-  // ---- Status dan pembersihan ----
+  // ---- Status and cleanup ----
 
   status() {
     const scan = this.workspace.scan();
@@ -246,8 +246,8 @@ export class Store {
   }
 
   /**
-   * Hapus giliran yang lebih tua dari 7 hari dan tidak termasuk 50 giliran terakhir.
-   * Ref yang masih dipakai giliran lain atau snapshot internal Turnback tetap disimpan.
+   * Delete turns older than 7 days that are not among the last 50 turns.
+   * Refs still used by other turns or by internal Turnback snapshots are kept.
    */
   gc({ now = Date.now(), keepDays = RETENTION.days, keepTurns = RETENTION.turns }: GcOptions = {}) {
     return this.locked(() => {
@@ -270,7 +270,7 @@ export class Store {
     });
   }
 
-  /** Jalankan `gc` kalau yang terakhir sudah lebih dari 24 jam lalu. */
+  /** Run `gc` if the last one was more than 24 hours ago. */
   gcIfDue(now = Date.now()) {
     const last = this.entries().findLast(e => e.kind === 'gc' && e.status === 'ok');
     if (last && now - Date.parse(last.time) < GC_INTERVAL_MS) return undefined;
@@ -295,8 +295,8 @@ function directorySize(dir: string): number {
   try {
     for (const item of readdirSync(dir, { withFileTypes: true })) {
       const file = path.join(dir, item.name);
-      try { total += item.isDirectory() ? directorySize(file) : lstatSync(file).size; } catch { /* dihapus gc */ }
+      try { total += item.isDirectory() ? directorySize(file) : lstatSync(file).size; } catch { /* removed by gc */ }
     }
-  } catch { /* belum ada snapshot */ }
+  } catch { /* no snapshot yet */ }
   return total;
 }

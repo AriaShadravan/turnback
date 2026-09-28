@@ -12,7 +12,7 @@ export type Operation = 'restore' | 'undo' | 'redo';
 export interface RestoreAction {
   path: string;
   action: 'create' | 'modify' | 'delete';
-  /** File berubah sejak snapshot terakhir Turnback, kemungkinan diedit manual oleh pengguna. */
+  /** File changed since Turnback's last snapshot, probably edited manually by the user. */
   uncertain: boolean;
 }
 
@@ -20,7 +20,7 @@ export interface RestorePlan {
   target: string;
   ref: string;
   paths?: string[];
-  /** `workspace`: seluruh tree dibandingkan. `recorded-paths` (mode edits-only): hanya path yang pernah dicatat. */
+  /** `workspace`: the whole tree is compared. `recorded-paths` (edits-only mode): only paths that were recorded. */
   scope: 'workspace' | 'recorded-paths';
   actions: RestoreAction[];
   token: string;
@@ -29,7 +29,7 @@ export interface RestorePlan {
 
 export interface RestoreOptions {
   paths?: string[];
-  /** Token dari rencana; kalau diisi, restore ditolak bila workspace sudah berubah. */
+  /** Token from the plan; when set, restore is refused if the workspace has changed. */
   token?: string;
   skipUncertain?: boolean;
   operation?: Operation;
@@ -47,7 +47,7 @@ export function planRestore(store: Store, target: string, selected?: string[]): 
   return buildPlan(store, target, selected).plan;
 }
 
-/** Rencana restore plus sumber isi file yang dituju untuk tiap path. */
+/** Restore plan plus the source of the target content for each path. */
 function buildPlan(store: Store, target: string, selected?: string[]) {
   const entries = store.entries();
   const { ref, since } = resolveTarget(store, entries, target);
@@ -116,9 +116,9 @@ function buildPlan(store: Store, target: string, selected?: string[]) {
 }
 
 /**
- * Mode edits-only: tree snapshot hanya lengkap untuk path yang dicatat di entri itu.
- * Keadaan sebuah path pada titik target = snapshot pertama sesudahnya yang mencatat path itu,
- * karena snapshot tersebut diambil sebelum path diubah. Path yang tidak pernah dicatat tidak disentuh.
+ * Edits-only mode: a snapshot tree is complete only for the paths recorded in that entry.
+ * The state of a path at the target = the first later snapshot that recorded the path,
+ * because that snapshot was taken before the path changed. Paths never recorded are left alone.
  */
 function recordedSources(store: Store, entries: Entry[]): Map<string, string> {
   const sources = new Map<string, string>();
@@ -130,8 +130,8 @@ function recordedSources(store: Store, entries: Entry[]): Map<string, string> {
 }
 
 /**
- * Pulihkan workspace ke `target`. Keadaan sekarang disimpan dulu sebagai snapshot pengaman,
- * sehingga restore selalu bisa dibatalkan dengan `redo`.
+ * Restore the workspace to `target`. The current state is saved first as a safety snapshot,
+ * so a restore can always be reversed with `redo`.
  */
 export function applyRestore(store: Store, target: string, options: RestoreOptions = {}): RestoreResult {
   const { paths, token, skipUncertain = false, operation = 'restore' } = options;
@@ -169,7 +169,7 @@ export function applyRestore(store: Store, target: string, options: RestoreOptio
   });
 }
 
-/** Giliran berikutnya untuk `undo`: setiap undo berturut-turut mundur satu giliran lagi. */
+/** Next turn for `undo`: each consecutive undo steps back one more turn. */
 export function undoTarget(store: Store): string | undefined {
   let depth = 0;
   for (const e of store.entries()) {
@@ -181,7 +181,7 @@ export function undoTarget(store: Store): string | undefined {
   return store.turns()[depth]?.id;
 }
 
-/** Snapshot pengaman dari restore/undo terakhir yang belum di-redo. */
+/** Safety snapshot of the last restore/undo that has not been redone. */
 export function redoTarget(store: Store): string | undefined {
   const stack: string[] = [];
   for (const e of store.entries()) {
@@ -192,7 +192,7 @@ export function redoTarget(store: Store): string | undefined {
   return stack.at(-1);
 }
 
-/** Target berupa ID giliran (dipulihkan ke baseline-nya) atau ref snapshot. */
+/** Target is a turn ID (restored to its baseline) or a snapshot ref. */
 function resolveTarget(store: Store, entries: Entry[], target: string): { ref: string; since: number } {
   const turn = store.findTurn(target);
   if (turn) {
@@ -206,7 +206,7 @@ function resolveTarget(store: Store, entries: Entry[], target: string): { ref: s
 
 const sameFile = (a: TreeItem | FileState, b: TreeItem | FileState) => a.oid === b.oid && a.mode === b.mode;
 
-/** Tulis satu file byte-per-byte dari shadow repo, atau hapus kalau tidak ada di target. */
+/** Write one file byte for byte from the shadow repo, or delete it if absent from the target. */
 function writeAction(store: Store, rel: string, object: TreeItem | undefined): void {
   const abs = store.workspace.abs(rel);
   assertNoSymlinkParent(store.root, abs);
@@ -228,7 +228,7 @@ function writeAction(store: Store, rel: string, object: TreeItem | undefined): v
   if (process.platform !== 'win32') chmodSync(abs, object.mode === '100755' ? 0o755 : 0o644);
 }
 
-/** Jangan pernah menulis menembus symlink direktori ke luar workspace. */
+/** Never write through a directory symlink to outside the workspace. */
 function assertNoSymlinkParent(root: string, abs: string): void {
   for (let dir = path.dirname(abs); isInside(root, dir); dir = path.dirname(dir)) {
     if (existsSync(dir) && lstatSync(dir).isSymbolicLink()) throw new Error(`Symlink parent: ${dir}`);
@@ -246,7 +246,7 @@ function removeEmptyParents(root: string, abs: string): void {
   }
 }
 
-/** File yang sedang dibuka program lain di Windows gagal dengan EBUSY/EPERM; coba lagi sebentar. */
+/** On Windows, files open in another program fail with EBUSY/EPERM; retry briefly. */
 function withRetry(fn: () => void, attempts = 3): void {
   for (let i = 1; ; i++) {
     try {

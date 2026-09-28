@@ -5,36 +5,36 @@ import ignore, { type Ignore } from 'ignore';
 import { dataHome, EXCLUDED_DIRS, MAX_FILE_BYTES } from './config.js';
 
 export interface Scan {
-  /** File dalam cakupan snapshot (path relatif, pemisah `/`). */
+  /** Files in snapshot scope (relative paths, `/` separator). */
   paths: string[];
-  /** File di atas batas ukuran atau tidak bisa dibaca. */
+  /** Files over the size limit or unreadable. */
   skipped: string[];
   bytes: number;
 }
 
 export interface FileState {
-  /** ID blob git dari isi file, supaya bisa dibandingkan langsung dengan tree shadow repo. */
+  /** Git blob ID of the file content, so it can be compared directly with shadow repo trees. */
   oid: string;
   mode: string;
 }
 
-/** Folder proyek pengguna: aturan pengecualian, pemindaian, dan pembacaan isi file. */
+/** The user's project folder: exclusion rules, scanning, and reading file content. */
 export class Workspace {
   private readonly matcher: Ignore = ignore();
 
   constructor(readonly root: string) {
-    try { this.matcher.add(readFileSync(path.join(root, '.turnbackignore'), 'utf8')); } catch { /* opsional */ }
+    try { this.matcher.add(readFileSync(path.join(root, '.turnbackignore'), 'utf8')); } catch { /* optional */ }
     try {
       const config = JSON.parse(readFileSync(path.join(dataHome(), 'config.json'), 'utf8'));
       this.matcher.add((config.exclude ?? []) as string[]);
-    } catch { /* opsional */ }
+    } catch { /* optional */ }
   }
 
   abs(rel: string): string {
     return path.join(this.root, rel);
   }
 
-  /** Path relatif terhadap root, atau `undefined` kalau berada di luar workspace. */
+  /** Path relative to the root, or `undefined` if outside the workspace. */
   relative(p: string): string | undefined {
     const rel = path.relative(this.root, path.resolve(this.root, p)).split(path.sep).join('/');
     return rel && rel !== '..' && !rel.startsWith('../') && !path.isAbsolute(rel) ? rel : undefined;
@@ -44,7 +44,7 @@ export class Workspace {
     return rel.split('/').some(part => EXCLUDED_DIRS.has(part)) || this.matcher.ignores(rel);
   }
 
-  /** File biasa atau symlink yang ada, masuk cakupan, dan tidak melewati batas ukuran. */
+  /** An existing regular file or symlink, in scope and within the size limit. */
   snapshotable(rel: string): boolean {
     if (this.excluded(rel)) return false;
     const st = this.stat(rel);
@@ -81,7 +81,7 @@ export class Workspace {
     return result;
   }
 
-  /** Isi dan mode file seperti yang akan disimpan git; `undefined` kalau file tidak ada. */
+  /** File content and mode as git would store them; `undefined` if the file does not exist. */
   fileState(rel: string, oidLength: number): FileState | undefined {
     const st = this.stat(rel);
     if (!st || !(st.isFile() || st.isSymbolicLink())) return undefined;
@@ -92,7 +92,7 @@ export class Workspace {
   }
 }
 
-/** ID objek blob git (SHA-1 atau SHA-256, mengikuti format repo). */
+/** Git blob object ID (SHA-1 or SHA-256, following the repo format). */
 export function blobId(content: Buffer, oidLength = 40): string {
   return createHash(oidLength === 64 ? 'sha256' : 'sha1')
     .update(`blob ${content.length}\0`)

@@ -1,6 +1,6 @@
 export type Agent = 'claude' | 'codex' | 'gemini' | 'cursor';
 
-/** Event netral hasil terjemahan payload hook dari tiap agen. */
+/** Neutral event translated from each agent's hook payload. */
 export type HookKind = 'session-start' | 'turn-start' | 'edit' | 'shell' | 'turn-end';
 
 export interface HookEvent {
@@ -9,9 +9,9 @@ export interface HookEvent {
   turn: string;
   cwd: string;
   kind: HookKind;
-  /** Path absolut yang akan diubah oleh tool edit. */
+  /** Absolute paths the edit tool is about to change. */
   paths?: string[];
-  /** Perintah shell, hanya dicatat di journal. */
+  /** Shell command, only recorded in the journal. */
   command?: string;
 }
 
@@ -44,7 +44,7 @@ export interface Entry {
 
 export type NewEntry = Omit<Entry, 'id' | 'time'>;
 
-/** Identitas pemilik sebuah entri journal, plus detail event yang ikut dicatat. */
+/** Owner identity of a journal entry, plus the recorded event details. */
 export type EntryOrigin = Pick<Entry, 'agent' | 'session' | 'turn'> & Partial<Pick<Entry, 'paths' | 'command'>>;
 
 export type Mode = 'full' | 'edits-only';
