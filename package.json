@@ -1,16 +1,45 @@
 {
   "name": "turnback",
   "version": "0.1.0",
-  "private": true,
+  "description": "Undo a coding agent turn, including shell commands and untracked files, via hooks, a CLI, and an MCP server",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "undo",
+    "restore",
+    "snapshot",
+    "claude-code",
+    "codex",
+    "gemini-cli",
+    "cursor",
+    "ai-agent",
+    "hooks"
+  ],
+  "homepage": "https://github.com/MFaizR77/turnback#readme",
+  "bugs": {
+    "url": "https://github.com/MFaizR77/turnback/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MFaizR77/turnback.git"
+  },
+  "license": "MIT",
+  "author": "MFaizR77",
+  "mcpName": "io.github.MFaizR77/turnback",
   "type": "module",
   "bin": {
     "turnback": "dist/cli.js"
   },
+  "files": [
+    "dist/**/*.js",
+    "guide"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "bench": "npm run build && node scripts/benchmark.mjs",
-    "check": "npm run build && npm test"
+    "check": "npm run build && npm test",
+    "prepack": "npm run build"
   },
   "engines": {
     "node": ">=22"

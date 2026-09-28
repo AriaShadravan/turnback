@@ -1,0 +1,44 @@
+name: Publish
+on:
+  push:
+    tags: ['v*']
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing and MCP registry login
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      # Trusted publishing needs npm 11.5.1 or later.
+      - run: npm install -g npm@^11.5.1
+      - name: Check that the tag matches package.json and server.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          SERVER="$(node -p "require('./server.json').version")"
+          SERVER_PKG="$(node -p "require('./server.json').packages[0].version")"
+          echo "tag=$TAG package.json=$PKG server.json=$SERVER/$SERVER_PKG"
+          test "$TAG" = "$PKG" && test "$TAG" = "$SERVER" && test "$TAG" = "$SERVER_PKG"
+      - run: npm ci
+      - run: npm run check
+      # Provenance is attached automatically when publishing through a trusted publisher.
+      # A version already on npm (the hand-published first release) is skipped, not re-published.
+      - name: Publish to npm
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if npm view "turnback@$VERSION" version >/dev/null 2>&1; then
+            echo "turnback@$VERSION is already on npm; skipping"
+          else
+            npm publish --access public
+          fi
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+      - run: ./mcp-publisher login github-oidc
+      - run: ./mcp-publisher publish

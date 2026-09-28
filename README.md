@@ -2,16 +2,15 @@
 
 Turnback records file state before and during a coding agent's turn, then restores it through the CLI or MCP. The shadow Git repo lives in `~/.turnback` (or `TURNBACK_HOME`), separate from the project's `.git`.
 
-Supports Claude Code, Codex, Gemini CLI, and Cursor. Requires Node.js 22+ and Git 2.25+. This is a source package; it has not been published to npm yet.
+Supports Claude Code, Codex, Gemini CLI, and Cursor. Requires Node.js 22+ and Git 2.25+. Claude Code and Codex have been tested live; Gemini CLI and Cursor are covered by tests built from their documented hook payloads.
 
 ```bash
-npm ci
-npm run build
-node dist/cli.js install all --project
-node dist/cli.js list
-node dist/cli.js diff <turn-id>
-node dist/cli.js undo --dry-run
-node dist/cli.js undo --yes
+npm install -g turnback
+turnback install all --project
+turnback list
+turnback diff <turn-id>
+turnback undo --dry-run
+turnback undo --yes
 ```
 
 `install all` without `--project` installs the user-level config. `uninstall all [--project]` removes only Turnback entries. `--no-mcp` installs hooks without MCP. Other config is kept.
@@ -49,3 +48,15 @@ npm run bench
 ```
 
 The benchmark creates a temporary 10k-file repo and reports latency without making it a strict CI gate. CI runs the tests and benchmark on Windows, macOS, and Linux × Node 22/24.
+
+From a clone, run `npm ci && npm run build` and use `node dist/cli.js` in place of `turnback`.
+
+## Releasing
+
+Set the same version in `package.json` and in both version fields of `server.json`, commit, then push a `v<version>` tag. The `Publish` workflow checks that the versions match, runs the tests, publishes to npm through trusted publishing (provenance is attached automatically), and publishes `server.json` to the MCP registry as `io.github.MFaizR77/turnback`.
+
+npm trusted publishing is configured on the package page at npmjs.com (repository `MFaizR77/turnback`, workflow `publish.yml`), which needs the package to exist. The first version is therefore published once by hand with `npm publish --access public`; pushing its tag afterwards skips npm (the version exists) and only publishes to the MCP registry. Later tags do both.
+
+## License
+
+MIT
