@@ -1,0 +1,29 @@
+{
+  "name": "turnback",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "turnback": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "bench": "npm run build && node scripts/benchmark.mjs",
+    "check": "npm run build && npm test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.1.0",
+    "ignore": "^7.0.10",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.1.0",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.0.0"
+  }
+}

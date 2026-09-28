@@ -1,0 +1,1 @@
+{"hook_event_name":"PreToolUse","session_id":"s","turn_id":"t","tool_name":"apply_patch","tool_input":{"command":"*** Update File: a.txt"}}
