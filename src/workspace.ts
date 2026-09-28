@@ -91,12 +91,21 @@ export class Workspace {
 
   /** File content and mode as git would store them; `undefined` if the file does not exist. */
   fileState(rel: string, oidLength: number): FileState | undefined {
+    const file = this.read(rel);
+    return file && { oid: blobId(file.content, oidLength), mode: file.mode };
+  }
+
+  /** File content (a symlink's target) and git mode; `undefined` if it is gone or not a file. */
+  read(rel: string): { content: Buffer; mode: string } | undefined {
     const st = this.stat(rel);
     if (!st || !(st.isFile() || st.isSymbolicLink())) return undefined;
     const abs = this.abs(rel);
-    const content = st.isSymbolicLink() ? Buffer.from(readlinkSync(abs)) : readFileSync(abs);
-    const mode = st.isSymbolicLink() ? '120000' : st.mode & 0o111 ? '100755' : '100644';
-    return { oid: blobId(content, oidLength), mode };
+    try {
+      const content = st.isSymbolicLink() ? Buffer.from(readlinkSync(abs)) : readFileSync(abs);
+      return { content, mode: st.isSymbolicLink() ? '120000' : st.mode & 0o111 ? '100755' : '100644' };
+    } catch {
+      return undefined;
+    }
   }
 }
 

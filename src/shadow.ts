@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { existsSync, lstatSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { EXCLUDED_DIRS, MAX_FILE_BYTES } from './config.js';
+import { EXCLUDED_DIRS, importBatchBytes, MAX_FILE_BYTES } from './config.js';
+import { blobId } from './workspace.js';
 
 export interface TreeItem {
   oid: string;
@@ -86,6 +87,43 @@ export class ShadowRepo {
     return true;
   }
 
+  /**
+   * Write a full snapshot as a parentless commit through `git fast-import`: one pack per batch of
+   * blobs instead of one loose object per file, which is what makes a first `git add` slow. The
+   * commit lists every path by object ID. The index is then loaded from it, with stat data
+   * refreshed so later `diff-files` calls compare stats instead of rehashing every file.
+   */
+  importSnapshot(paths: string[], read: (rel: string) => { content: Buffer; mode: string } | undefined, message: string): string {
+    const oidLength = this.objectIdLength();
+    const tree: string[] = [];
+    let blobs: Buffer[] = [], size = 0;
+    const flush = () => {
+      if (!blobs.length) return;
+      this.run(['fast-import', '--quiet', '--done'], Buffer.concat([...blobs, Buffer.from('done\n')]));
+      blobs = [];
+      size = 0;
+    };
+    for (const rel of paths) {
+      const file = read(rel);
+      if (!file) continue;
+      blobs.push(Buffer.from(`blob\ndata ${file.content.length}\n`), file.content, Buffer.from('\n'));
+      size += file.content.length;
+      tree.push(`M ${file.mode} ${blobId(file.content, oidLength)} ${quotePath(rel)}\n`);
+      if (size >= importBatchBytes()) flush();
+    }
+    flush();
+
+    const ref = REF_PREFIX + randomUUID().replaceAll('-', '');
+    const header = `commit ${ref}\ncommitter Turnback <turnback@localhost> ${Math.floor(Date.now() / 1000)} +0000\n`
+      + `data ${Buffer.byteLength(message)}\n${message}\n`;
+    this.run(['fast-import', '--quiet', '--done'], `${header}${tree.join('')}\ndone\n`);
+    this.run(['read-tree', ref]);
+    // Exits 1 when some entries still differ (a file changed meanwhile); diff-files reports those later.
+    spawnSync('git', this.baseArgs(['update-index', '-q', '--refresh']), { cwd: this.root, timeout: 180_000 });
+    writeFileSync(this.indexRefFile, ref);
+    return ref;
+  }
+
   /** Save the index as a parentless commit and give it a new ref. */
   commit(message: string): string {
     const tree = this.run(['write-tree']).trim();
@@ -142,13 +180,13 @@ export class ShadowRepo {
     return this.list(['diff', '--name-only', '-z', a, b]);
   }
 
-  private run(args: string[], input?: string): string {
+  private run(args: string[], input?: string | Buffer): string {
     const start = performance.now();
     const r = spawnSync('git', this.baseArgs(args), {
       cwd: this.root,
       encoding: 'utf8',
       input,
-      timeout: args[0] === 'add' ? 180_000 : 30_000,
+      timeout: args[0] === 'add' || args[0] === 'fast-import' ? 180_000 : 30_000,
       maxBuffer: 64 * 1024 * 1024,
     });
     if (process.env.TURNBACK_TRACE_GIT) process.stderr.write(`git ${args[0]} ${Math.round(performance.now() - start)}ms\n`);
@@ -192,4 +230,9 @@ export class ShadowRepo {
       try { unlinkSync(file); } catch { /* already deleted */ }
     }
   }
+}
+
+/** C-style quoting for a fast-import path; required for names starting with `"` or containing LF. */
+function quotePath(rel: string): string {
+  return `"${rel.replace(/[\\"]/g, c => `\\${c}`).replaceAll('\n', '\\n')}"`;
 }

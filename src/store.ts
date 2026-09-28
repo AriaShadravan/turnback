@@ -96,6 +96,7 @@ export class Store {
   /**
    * Save the workspace state as a new commit. Without `scope`, the whole tree is compared
    * with the previous snapshot; with `scope`, only those paths are updated in the index.
+   * The first full snapshot is written through `git fast-import` (see `ShadowRepo.importSnapshot`).
    * Must be called inside the lock.
    */
   snapshotLocked(kind: EntryKind, origin: EntryOrigin, scope?: string[]): Entry {
@@ -103,15 +104,15 @@ export class Store {
     const previous = this.latestRef();
     let skipped: string[] = [];
 
+    if (!previous && !scope) {
+      const scan = this.workspace.scan();
+      const ref = this.repo.importSnapshot(scan.paths, rel => this.workspace.read(rel), kind);
+      return this.log({ ...originFields(origin), kind, ref, status: 'ok', note: skippedNote(scan.skipped) });
+    }
+
     if (!previous) {
       this.repo.load();
-      if (scope) {
-        this.repo.stage(this.relativePaths(scope).filter(p => this.workspace.snapshotable(p)));
-      } else {
-        const scan = this.workspace.scan();
-        skipped = scan.skipped;
-        this.repo.stage(scan.paths);
-      }
+      this.repo.stage(this.relativePaths(scope!).filter(p => this.workspace.snapshotable(p)));
     } else {
       this.repo.load(previous);
       const changes = this.classify(scope ? this.relativePaths(scope) : this.repo.changedPaths());
@@ -124,8 +125,7 @@ export class Store {
     }
 
     const ref = this.repo.commit(kind);
-    const note = skipped.length ? `Skipped ${skipped.length}: ${skipped.slice(0, 20).join(', ')}` : undefined;
-    return this.log({ ...originFields(origin), kind, ref, status: 'ok', note });
+    return this.log({ ...originFields(origin), kind, ref, status: 'ok', note: skippedNote(skipped) });
   }
 
   relativePaths(paths: string[]): string[] {
@@ -300,3 +300,6 @@ function directorySize(dir: string): number {
   } catch { /* no snapshot yet */ }
   return total;
 }
+
+const skippedNote = (skipped: string[]) =>
+  skipped.length ? `Skipped ${skipped.length}: ${skipped.slice(0, 20).join(', ')}` : undefined;

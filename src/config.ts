@@ -10,6 +10,8 @@ export const MAX_FILE_BYTES = 5 * 1024 * 1024;
 export const EDITS_ONLY_BYTES = 2 * 1024 ** 3;
 /** File count limit before a workspace switches to edits-only mode. Overridable for tests. */
 export const editsOnlyFiles = () => Number(process.env.TURNBACK_MAX_FILES || 100_000);
+/** File bytes per `git fast-import` run in a first snapshot; each run writes one pack. Overridable for tests. */
+export const importBatchBytes = () => Number(process.env.TURNBACK_IMPORT_BATCH_BYTES || 64 * 1024 * 1024);
 
 export const LOCK_TIMEOUT_MS = 30_000;
 export const LOCK_STALE_MS = 60_000;
