@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
@@ -40,7 +40,7 @@ export function workspaceRoot(cwd: string): string {
   const cached = roots.get(cwd);
   if (cached) return cached;
   const r = spawnSync('git', ['-C', cwd, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', timeout: 1500 });
-  const root = path.resolve(r.status === 0 ? r.stdout.trim() : cwd);
+  const root = r.status === 0 ? path.resolve(r.stdout.trim()) : canonicalPath(cwd);
   roots.set(cwd, root);
   return root;
 }
@@ -50,6 +50,21 @@ export function workspaceRootForFile(file: string): string {
   let dir = path.dirname(path.resolve(file));
   while (!existsSync(dir) && path.dirname(dir) !== dir) dir = path.dirname(dir);
   return workspaceRoot(dir);
+}
+
+/**
+ * The same path with its existing part spelled as the OS resolves it, so aliases such as
+ * macOS `/var` → `/private/var` or Windows 8.3 names (`RUNNER~1`) match git's toplevel.
+ * The part that does not exist yet (a new file or folder) is kept as is.
+ */
+export function canonicalPath(p: string): string {
+  let existing = path.resolve(p);
+  const rest: string[] = [];
+  while (!existsSync(existing) && path.dirname(existing) !== existing) {
+    rest.unshift(path.basename(existing));
+    existing = path.dirname(existing);
+  }
+  try { return path.join(realpathSync.native(existing), ...rest); } catch { return path.resolve(p); }
 }
 
 export function isInside(root: string, file: string): boolean {

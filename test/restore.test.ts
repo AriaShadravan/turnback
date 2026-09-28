@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { applyRestore, planRestore, redoTarget, undoTarget } from '../src/restore.js';
@@ -87,6 +87,23 @@ describe('snapshot and restore', () => {
     expect(p.read('a.txt')).toBe('a0');
     expect(p.read('b.txt')).toBe('b1');
     expect(() => planRestore(s, 't1', [path.resolve(p.root, '..', 'outside.txt')])).toThrow(/outside/);
+  });
+
+  it('accepts paths spelled through an alias of the workspace (symlink, macOS /var, Windows 8.3)', () => {
+    const alias = `${p.root}-alias`;
+    symlinkSync(p.root, alias, 'junction');
+    const viaAlias = path.join(alias, 'a.txt');
+    p.write('a.txt', 'before');
+    expect(hook(p.root, 'edit', 't1', { paths: [viaAlias] })?.status).toBe('ok');
+    p.write('a.txt', 'after');
+    hook(p.root, 'turn-end');
+
+    const s = new Store(p.root);
+    expect(s.summarize(s.findTurn('t1')!).changedFiles).toBe(1);
+    const plan = planRestore(s, 't1', [viaAlias]);
+    expect(plan.actions.map(a => a.path)).toEqual(['a.txt']);
+    applyRestore(s, 't1', { paths: [viaAlias], token: plan.token });
+    expect(p.read('a.txt')).toBe('before');
   });
 
   it('records a failed snapshot instead of throwing', () => {

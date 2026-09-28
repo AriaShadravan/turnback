@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { lstatSync, readdirSync, readFileSync, readlinkSync, type Stats } from 'node:fs';
 import path from 'node:path';
 import ignore, { type Ignore } from 'ignore';
-import { dataHome, EXCLUDED_DIRS, MAX_FILE_BYTES } from './config.js';
+import { canonicalPath, dataHome, EXCLUDED_DIRS, MAX_FILE_BYTES } from './config.js';
 
 export interface Scan {
   /** Files in snapshot scope (relative paths, `/` separator). */
@@ -34,9 +34,17 @@ export class Workspace {
     return path.join(this.root, rel);
   }
 
-  /** Path relative to the root, or `undefined` if outside the workspace. */
+  /**
+   * Path relative to the root, or `undefined` if outside the workspace. A path that looks outside
+   * is retried in canonical form, since it may reach the root through an alias.
+   */
   relative(p: string): string | undefined {
-    const rel = path.relative(this.root, path.resolve(this.root, p)).split(path.sep).join('/');
+    const abs = path.resolve(this.root, p);
+    return this.inside(abs) ?? this.inside(canonicalPath(abs));
+  }
+
+  private inside(abs: string): string | undefined {
+    const rel = path.relative(this.root, abs).split(path.sep).join('/');
     return rel && rel !== '..' && !rel.startsWith('../') && !path.isAbsolute(rel) ? rel : undefined;
   }
 
