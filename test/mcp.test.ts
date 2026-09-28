@@ -65,10 +65,28 @@ it('rejects a stale token and skips manual edits without elicitation', async () 
   }
 }, 15_000);
 
+it('skips manual edits once when a modern client declines approval', async () => {
+  p.write('a.txt', 'manual');
+  const client = new Client({ name: 'modern-test', version: '1.0.0' }, { capabilities: { elicitation: { form: {} } }, versionNegotiation: { mode: { pin: '2026-07-28' } } });
+  let asked = 0;
+  client.setRequestHandler('elicitation/create', async () => { asked++; return { action: 'decline' }; });
+  await connect(client);
+  try {
+    const preview = await call(client, 'restore', { target: 't' });
+    const result = await call(client, 'restore', { target: 't', token: preview.data.confirm_token });
+    expect(result.isError).toBeFalsy();
+    expect(result.data.skipped).toContain('a.txt');
+    expect(asked).toBe(1);
+    expect(p.read('a.txt')).toBe('manual');
+  } finally {
+    await client.close();
+  }
+}, 15_000);
+
 it('asks a modern client to approve overwriting manual edits', async () => {
   p.write('a.txt', 'manual');
   const client = new Client({ name: 'modern-test', version: '1.0.0' }, { capabilities: { elicitation: { form: {} } }, versionNegotiation: { mode: { pin: '2026-07-28' } } });
-  client.setRequestHandler('elicitation/create', async () => ({ action: 'accept', content: { approve: true } }));
+  client.setRequestHandler('elicitation/create', async () => ({ action: 'accept', content: {} }));
   await connect(client);
   try {
     const preview = await call(client, 'restore', { target: 't' });

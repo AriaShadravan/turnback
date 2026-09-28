@@ -1,4 +1,4 @@
-import { acceptedContent, CLIENT_CAPABILITIES_META_KEY, inputRequired, McpServer } from '@modelcontextprotocol/server';
+import { CLIENT_CAPABILITIES_META_KEY, inputRequired, inputResponse, McpServer } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import * as z from 'zod/v4';
 import { VERSION } from './config.js';
@@ -89,20 +89,23 @@ function registerRestoreTool(server: McpServer, name: 'restore' | 'redo', descri
       if (token !== plan.token) throw new Error('Stale or invalid confirmation token');
 
       const uncertain = plan.actions.filter(a => a.uncertain);
-      const approval = acceptedContent(ctx.mcpReq.inputResponses, 'approve', z.object({ approve: z.boolean() }));
+      // Belum dijawab → tanya sekali. Decline/cancel dihormati sebagai jawaban, bukan ditanya ulang.
+      const answer = inputResponse(ctx.mcpReq.inputResponses, 'approve');
       const capabilities = (ctx.mcpReq.envelope as Record<string, { elicitation?: unknown }> | undefined)?.[CLIENT_CAPABILITIES_META_KEY];
-      if (uncertain.length && capabilities?.elicitation && approval === undefined) {
+      if (uncertain.length && capabilities?.elicitation && answer.kind === 'missing') {
         return inputRequired({
           inputRequests: {
             approve: inputRequired.elicit({
-              message: `Turnback will overwrite ${uncertain.length} file(s) that may contain manual edits: ${uncertain.map(a => a.path).join(', ')}. Approve?`,
-              requestedSchema: { type: 'object', properties: { approve: { type: 'boolean' } }, required: ['approve'] },
+              message: `Turnback will overwrite ${uncertain.length} file(s) that may contain manual edits: ${uncertain.map(a => a.path).join(', ')}. Accept to overwrite, Decline to skip them.`,
+              // Tombol Accept sudah berarti setuju; field tidak wajib supaya form bisa langsung dikirim.
+              requestedSchema: { type: 'object', properties: { approve: { type: 'boolean', title: 'Overwrite these files', default: true } } },
             }),
           },
         });
       }
+      const approved = answer.kind === 'elicit' && answer.action === 'accept' && answer.content?.approve !== false;
 
-      const restored = applyRestore(store, target, { paths, token, skipUncertain: !approval?.approve, operation: name });
+      const restored = applyRestore(store, target, { paths, token, skipUncertain: !approved, operation: name });
       const note = restored.skipped.length ? ' Suggest `turnback restore` from the CLI for skipped files.' : '';
       return result(restored, `${restored.applied.length} restored; ${restored.skipped.length} manual edits skipped; ${restored.failed.length} failed. Safety snapshot: ${restored.safety}.${note}`);
     } catch (e) { return failure(e); }

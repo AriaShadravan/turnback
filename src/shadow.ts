@@ -139,6 +139,7 @@ export class ShadowRepo {
   private run(args: string[], input?: string): string {
     const start = performance.now();
     const r = spawnSync('git', this.baseArgs(args), {
+      cwd: this.root,
       encoding: 'utf8',
       input,
       timeout: args[0] === 'add' ? 180_000 : 30_000,
@@ -153,13 +154,17 @@ export class ShadowRepo {
   }
 
   private check(args: string[]): boolean {
-    return spawnSync('git', this.baseArgs(args), { timeout: 5_000 }).status === 0;
+    return spawnSync('git', this.baseArgs(args), { cwd: this.root, timeout: 5_000 }).status === 0;
   }
 
   private list(args: string[]): string[] {
     return this.run(args).split('\0').filter(Boolean);
   }
 
+  /**
+   * Git melaporkan dan menafsirkan path relatif terhadap folder kerja proses, jadi setiap
+   * perintah dijalankan dari root workspace, bukan dari folder kerja hook.
+   */
   private baseArgs(args: string[]): string[] {
     return [`--git-dir=${this.gitDir}`, `--work-tree=${this.root}`, '-c', 'core.autocrlf=false', '-c', 'core.longpaths=true', ...args];
   }

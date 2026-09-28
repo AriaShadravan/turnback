@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
@@ -42,6 +43,18 @@ export function workspaceRoot(cwd: string): string {
   const root = path.resolve(r.status === 0 ? r.stdout.trim() : cwd);
   roots.set(cwd, root);
   return root;
+}
+
+/** Workspace yang memuat sebuah file, dihitung dari folder terdekat yang sudah ada (file baru mungkin belum punya folder). */
+export function workspaceRootForFile(file: string): string {
+  let dir = path.dirname(path.resolve(file));
+  while (!existsSync(dir) && path.dirname(dir) !== dir) dir = path.dirname(dir);
+  return workspaceRoot(dir);
+}
+
+export function isInside(root: string, file: string): boolean {
+  const rel = path.relative(root, file);
+  return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
 }
 
 /** Folder data Turnback untuk satu workspace. */
