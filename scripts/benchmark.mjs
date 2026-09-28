@@ -47,5 +47,10 @@ try {
     status: { warm: warm.status, firstEdit: first?.status, secondEdit: second?.status, turnEnd: end?.status, shell: shell?.status },
   }, null, 2));
 } finally {
-  for (const dir of [root, home]) rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  // A git process killed by a timeout can keep the folder busy on Windows; cleanup must not fail the report.
+  for (const dir of [root, home]) {
+    try { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch (error) {
+      console.warn(`cleanup skipped: ${error.message}`);
+    }
+  }
 }
