@@ -32,6 +32,11 @@ it('installs project hooks idempotently and keeps unrelated settings', () => {
   expect(JSON.parse(readFileSync(path.join(root, '.mcp.json'), 'utf8')).mcpServers.turnback.args).toEqual([CLI_PATH, 'mcp']);
 });
 
+it('forwards TURNBACK_HOME to the Codex MCP server, which does not inherit the environment', () => {
+  install('codex', true, root, CLI_PATH);
+  expect(readFileSync(path.join(root, '.codex', 'config.toml'), 'utf8')).toContain('env_vars = ["TURNBACK_HOME"]');
+});
+
 it('uninstall removes only Turnback entries', () => {
   install('all', true, root, CLI_PATH);
   uninstall('all', true, root);

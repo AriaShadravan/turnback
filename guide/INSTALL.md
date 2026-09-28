@@ -2,7 +2,7 @@
 
 Run `npm ci && npm run build`, then `node dist/cli.js install all` for the user config, or add `--project` for the current repo. Pick one of `claude`, `codex`, `gemini`, `cursor` for a single agent. Run `uninstall` at the same level to remove Turnback entries. Installing again does not duplicate hooks.
 
-Hooks call `node <absolute path>/dist/cli.js hook <agent>` and the MCP server calls `node <absolute path>/dist/cli.js mcp`. Keep the build output where it is after installing. After changing the code, run `npm run build` again. Restart the agent so it reads the config. Codex also asks you to review trust for new hooks via `/hooks`.
+Hooks call `node <absolute path>/dist/cli.js hook <agent>` and the MCP server calls `node <absolute path>/dist/cli.js mcp`. Keep the build output where it is after installing. After changing the code, run `npm run build` again. Restart the agent so it reads the config. Codex runs project hooks only in a trusted project, and skips every new or changed hook until you trust it in `/hooks`; `codex exec` can bypass that for one run with `--dangerously-bypass-hook-trust`. Codex starts MCP servers with a minimal environment, so the installer forwards `TURNBACK_HOME` through `env_vars`.
 
 Config locations:
 

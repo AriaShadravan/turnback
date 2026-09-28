@@ -144,7 +144,8 @@ const mcpServer = (cli: string) => ({ command: 'node', args: [cli, 'mcp'] });
 
 function writeToml(file: string, cli: string): void {
   const old = existsSync(file) ? readFileSync(file, 'utf8') : '';
-  const block = `# turnback begin\n[mcp_servers.turnback]\ncommand = "node"\nargs = [${JSON.stringify(cli)}, "mcp"]\n# turnback end\n`;
+  // Codex starts MCP servers with a minimal environment; TURNBACK_HOME must be forwarded explicitly.
+  const block = `# turnback begin\n[mcp_servers.turnback]\ncommand = "node"\nargs = [${JSON.stringify(cli)}, "mcp"]\nenv_vars = ["TURNBACK_HOME"]\n# turnback end\n`;
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, `${old.replace(TOML_BLOCK, '\n').trimEnd()}\n\n${block}`);
 }
