@@ -1,8 +1,8 @@
 # Turnback
 
-Turnback merekam keadaan file sebelum dan selama giliran agen coding, lalu memulihkannya lewat CLI atau MCP. Shadow Git disimpan di `~/.turnback` (atau `TURNBACK_HOME`), terpisah dari `.git` proyek.
+Turnback records file state before and during a coding agent's turn, then restores it through the CLI or MCP. The shadow Git repo lives in `~/.turnback` (or `TURNBACK_HOME`), separate from the project's `.git`.
 
-Mendukung Claude Code, Codex, Gemini CLI, dan Cursor. Membutuhkan Node.js 22+ dan Git 2.25+. Versi ini adalah source package; publikasi npm belum dilakukan.
+Supports Claude Code, Codex, Gemini CLI, and Cursor. Requires Node.js 22+ and Git 2.25+. This is a source package; it has not been published to npm yet.
 
 ```bash
 npm ci
@@ -14,38 +14,38 @@ node dist/cli.js undo --dry-run
 node dist/cli.js undo --yes
 ```
 
-`install all` tanpa `--project` memasang konfigurasi pada level pengguna. `uninstall all [--project]` hanya menghapus entri Turnback. `--no-mcp` memasang hook tanpa MCP. Konfigurasi lain dipertahankan.
+`install all` without `--project` installs the user-level config. `uninstall all [--project]` removes only Turnback entries. `--no-mcp` installs hooks without MCP. Other config is kept.
 
-Perintah tersedia: `install`, `uninstall`, `list`, `diff`, `status`, `restore`, `undo`, `redo`, `gc`, dan `mcp`. `restore <turn> --path <file> --dry-run` menampilkan rencana. `--yes` menerapkannya. `redo --yes` kembali ke snapshot pengaman sebelum pemulihan terakhir. Pemulihan mengubah file proyek; konteks percakapan agen tidak ikut dipulihkan.
+Available commands: `install`, `uninstall`, `list`, `diff`, `status`, `restore`, `undo`, `redo`, `gc`, and `mcp`. `restore <turn> --path <file> --dry-run` shows the plan. `--yes` applies it. `redo --yes` returns to the safety snapshot taken before the last restore. Restoring changes project files; the agent's conversation context is not restored.
 
-Dokumentasi: [pemasangan](guide/INSTALL.md), [pemulihan](guide/RESTORE.md), [MCP](guide/MCP.md), dan [cakupan](guide/LIMITS.md).
+Documentation: [installation](guide/INSTALL.md), [restore](guide/RESTORE.md), [MCP](guide/MCP.md), and [scope](guide/LIMITS.md).
 
-## Cara kerja
+## How it works
 
-Hook sebelum tool pengubah mengambil baseline giliran. Hook sebelum shell menangkap seluruh tree; edit berikutnya menangkap path terkait. Akhir giliran menangkap hasilnya. Snapshot awal dipanaskan di latar belakang saat pemasangan dan awal sesi. Hook selalu memberi izin agen melanjutkan saat perekaman gagal; status `failed`, `skipped`, atau `unprotected` terlihat lewat `status`.
+The hook before a mutating tool takes the turn baseline. The hook before a shell command captures the whole tree; later edits capture the affected paths. The end of the turn captures the result. The initial snapshot is warmed in the background on install and session start. Hooks always let the agent continue when recording fails; a `failed`, `skipped`, or `unprotected` state is visible through `status`.
 
-File tracked, untracked, dan gitignored hingga 5 MB dicakup. Direktori hasil build dan dependensi dikecualikan. Aturan tambahan mengikuti sintaks gitignore di `.turnbackignore`; aturan global berupa `{"exclude":["pattern"]}` di `~/.turnback/config.json`.
+Tracked, untracked, and gitignored files up to 5 MB are covered. Build output and dependency directories are excluded. Extra rules use gitignore syntax in `.turnbackignore`; global rules go in `~/.turnback/config.json` as `{"exclude":["pattern"]}`.
 
-Workspace di atas 100 ribu file atau 2 GB masuk mode `edits-only`: hanya path yang disentuh tool edit yang di-snapshot, perintah shell dicatat sebagai `unprotected`, dan restore hanya menyentuh path yang tercatat. Giliran yang lebih tua dari 7 hari dan di luar 50 giliran terakhir dibersihkan otomatis paling sering sekali sehari.
+Workspaces above 100k files or 2 GB switch to `edits-only` mode: only paths touched by edit tools are snapshotted, shell commands are recorded as `unprotected`, and restore touches only recorded paths. Turns older than 7 days and outside the last 50 turns are cleaned up automatically, at most once a day.
 
-## Pengembangan
+## Development
 
-| Modul | Isi |
+| Module | Contents |
 |---|---|
-| `src/cli.ts` | Titik masuk CLI dan hook |
-| `src/adapters.ts` | Payload hook tiap agen → `HookEvent` |
-| `src/recorder.ts` | Aturan snapshot per event |
-| `src/store.ts` | Journal, snapshot, riwayat giliran, status, `gc` |
-| `src/restore.ts` | Rencana dan eksekusi restore, undo, redo |
-| `src/shadow.ts` | Pembungkus shadow repo git |
-| `src/workspace.ts` | Pemindaian workspace dan aturan pengecualian |
-| `src/journal.ts`, `src/lock.ts`, `src/config.ts` | Journal JSONL, lock per workspace, konstanta |
-| `src/install.ts` | Pemasangan hook dan MCP per agen |
-| `src/mcp.ts` | Server MCP stdio |
+| `src/cli.ts` | CLI and hook entry point |
+| `src/adapters.ts` | Each agent's hook payload → `HookEvent` |
+| `src/recorder.ts` | Snapshot rules per event |
+| `src/store.ts` | Journal, snapshots, turn history, status, `gc` |
+| `src/restore.ts` | Restore planning and execution, undo, redo |
+| `src/shadow.ts` | Shadow git repo wrapper |
+| `src/workspace.ts` | Workspace scanning and exclusion rules |
+| `src/journal.ts`, `src/lock.ts`, `src/config.ts` | JSONL journal, per-workspace lock, constants |
+| `src/install.ts` | Hook and MCP installation per agent |
+| `src/mcp.ts` | Stdio MCP server |
 
 ```bash
 npm run check
 npm run bench
 ```
 
-Benchmark membuat repo sementara 10 ribu file dan melaporkan latensi, tanpa menjadikannya gerbang CI yang kaku. CI menjalankan tes dan benchmark pada Windows, macOS, Linux × Node 22/24.
+The benchmark creates a temporary 10k-file repo and reports latency without making it a strict CI gate. CI runs the tests and benchmark on Windows, macOS, and Linux × Node 22/24.

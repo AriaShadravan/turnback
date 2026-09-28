@@ -1,16 +1,16 @@
-# Pemasangan
+# Installation
 
-Jalankan `npm ci && npm run build`, lalu `node dist/cli.js install all` untuk konfigurasi pengguna atau tambahkan `--project` untuk repo saat ini. Pilih salah satu `claude`, `codex`, `gemini`, `cursor` untuk satu agen. Jalankan `uninstall` dengan level yang sama untuk melepas entri Turnback. Pemasangan berulang tidak menggandakan hook.
+Run `npm ci && npm run build`, then `node dist/cli.js install all` for the user config, or add `--project` for the current repo. Pick one of `claude`, `codex`, `gemini`, `cursor` for a single agent. Run `uninstall` at the same level to remove Turnback entries. Installing again does not duplicate hooks.
 
-Hook memanggil `node <path absolut>/dist/cli.js hook <agen>` dan server MCP memanggil `node <path absolut>/dist/cli.js mcp`. Jaga lokasi hasil build setelah pemasangan. Setelah mengubah kode, jalankan `npm run build` lagi. Restart agen agar konfigurasi terbaca. Codex juga meminta peninjauan kepercayaan hook baru melalui `/hooks`.
+Hooks call `node <absolute path>/dist/cli.js hook <agent>` and the MCP server calls `node <absolute path>/dist/cli.js mcp`. Keep the build output where it is after installing. After changing the code, run `npm run build` again. Restart the agent so it reads the config. Codex also asks you to review trust for new hooks via `/hooks`.
 
-Lokasi konfigurasi:
+Config locations:
 
-| Agen | Hook proyek | Hook pengguna | MCP |
+| Agent | Project hooks | User hooks | MCP |
 |---|---|---|---|
 | Claude Code | `.claude/settings.json` | `~/.claude/settings.json` | `.mcp.json` / `~/.claude.json` |
 | Codex | `.codex/hooks.json` | `~/.codex/hooks.json` | `.codex/config.toml` / `~/.codex/config.toml` |
-| Gemini CLI | `.gemini/settings.json` | `~/.gemini/settings.json` | `mcpServers` pada settings yang sama |
+| Gemini CLI | `.gemini/settings.json` | `~/.gemini/settings.json` | `mcpServers` in the same settings |
 | Cursor | `.cursor/hooks.json` | `~/.cursor/hooks.json` | `.cursor/mcp.json` / `~/.cursor/mcp.json` |
 
-Format hook diverifikasi dari [Claude Code](https://code.claude.com/docs/en/hooks), [Codex](https://learn.chatgpt.com/docs/hooks), [Gemini CLI](https://geminicli.com/docs/hooks/reference/), dan [Cursor](https://prod.cursor.com/docs/hooks). Codex menyediakan `turn_id`; Gemini memerlukan ID giliran lokal per sesi. Cursor harus menerima JSON izin yang valid pada hook izin, sehingga Turnback mengembalikan `{"permission":"allow"}`.
+Hook formats were checked against [Claude Code](https://code.claude.com/docs/en/hooks), [Codex](https://learn.chatgpt.com/docs/hooks), [Gemini CLI](https://geminicli.com/docs/hooks/reference/), and [Cursor](https://prod.cursor.com/docs/hooks). Codex provides `turn_id`; Gemini needs a local per-session turn ID. Cursor must receive valid permission JSON from permission hooks, so Turnback returns `{"permission":"allow"}`.

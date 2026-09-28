@@ -1,9 +1,9 @@
-# Cakupan dan batas
+# Scope and limits
 
-- Snapshot hanya mencakup filesystem pada root workspace. Efek jaringan, database, proses, file di luar root, dan konteks percakapan agen tidak dipulihkan.
-- File di atas 5 MB serta `.git`, `.turnback`, `node_modules`, `.venv`, `venv`, `__pycache__`, `dist`, `build`, `target`, `.next`, `.nuxt`, `.cache`, `coverage`, `.turbo`, dan `.gradle` dikecualikan. Tambahkan pola di `.turnbackignore`.
-- Workspace di atas 100 ribu file atau 2 GB masuk mode `edits-only`. Hanya path yang disentuh tool edit yang di-snapshot; perintah shell tidak dilindungi dan tercatat `unprotected`. Restore di mode ini hanya menyentuh path yang tercatat, memakai isi path itu tepat sebelum pertama kali diubah sesudah titik target.
-- Hook tidak memblokir tool agen. Kegagalan baseline dapat membuat giliran `unprotected`; lihat `turnback status` sebelum memulihkan.
-- Restore hanya menulis file dalam cakupan snapshot. File besar, direktori yang dikecualikan, dan symlink parent yang mengarah keluar workspace tidak ditimpa.
-- Shadow repo terpisah dari `.git` pengguna, tetapi menyimpan salinan file sensitif kecil seperti `.env`. Lindungi direktori `~/.turnback` sesuai kebutuhan mesin Anda.
-- Latensi bergantung pada disk, Git, dan banyak file. Benchmark 10 ribu file dilaporkan CI. Baseline awal dijalankan di latar belakang; giliran ditandai `unprotected` bila menunggu baseline lebih dari 30 detik.
+- Snapshots cover only the filesystem under the workspace root. Network effects, databases, processes, files outside the root, and the agent's conversation context are not restored.
+- Files above 5 MB and `.git`, `.turnback`, `node_modules`, `.venv`, `venv`, `__pycache__`, `dist`, `build`, `target`, `.next`, `.nuxt`, `.cache`, `coverage`, `.turbo`, and `.gradle` are excluded. Add patterns in `.turnbackignore`.
+- Workspaces above 100k files or 2 GB switch to `edits-only` mode. Only paths touched by edit tools are snapshotted; shell commands are not protected and are recorded as `unprotected`. Restore in this mode touches only recorded paths, using each path's content from just before it was first changed after the target point.
+- Hooks never block agent tools. A failed baseline can leave a turn `unprotected`; check `turnback status` before restoring.
+- Restore writes only files within snapshot scope. Large files, excluded directories, and parent symlinks pointing outside the workspace are never overwritten.
+- The shadow repo is separate from the user's `.git`, but it stores copies of small sensitive files such as `.env`. Protect the `~/.turnback` directory as your machine requires.
+- Latency depends on disk, Git, and file count. CI reports a 10k-file benchmark. The initial baseline runs in the background; a turn is marked `unprotected` if it waits more than 30 seconds for the baseline.
