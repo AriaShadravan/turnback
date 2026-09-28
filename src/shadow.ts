@@ -164,9 +164,15 @@ export class ShadowRepo {
   /**
    * Git reports and interprets paths relative to the process working folder, so every
    * command runs from the workspace root, not from the hook's working folder.
+   * Snapshot commits use a fixed identity so they work without a configured git user.
    */
   private baseArgs(args: string[]): string[] {
-    return [`--git-dir=${this.gitDir}`, `--work-tree=${this.root}`, '-c', 'core.autocrlf=false', '-c', 'core.longpaths=true', ...args];
+    return [
+      `--git-dir=${this.gitDir}`, `--work-tree=${this.root}`,
+      '-c', 'core.autocrlf=false', '-c', 'core.longpaths=true',
+      '-c', 'user.name=Turnback', '-c', 'user.email=turnback@localhost', '-c', 'user.useConfigOnly=false',
+      ...args,
+    ];
   }
 
   /** Long path lists are passed through a file to stay under the command line length limit. */
