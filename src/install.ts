@@ -1,71 +1,173 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
-import { homedir } from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import path from 'node:path';
 import type { Agent } from './types.js';
 
-const agents: Agent[] = ['claude','codex','gemini','cursor'];
-const marker = 'turnback:';
-function json(file: string): any { try { return JSON.parse(readFileSync(file, 'utf8')); } catch { return {}; } }
-function save(file: string, value: any) { mkdirSync(path.dirname(file), { recursive: true }); writeFileSync(file, JSON.stringify(value, null, 2) + '\n'); }
-function hookCommand(agent: Agent, cli: string) { return `node "${cli.replaceAll('"','\\"')}" hook ${agent}`; }
-function mcpConfig(cli: string) { return { command: 'node', args: [cli, 'mcp'] }; }
-function configPath(agent: Agent, project: boolean, root: string): string {
-  const home = homedir(); const base = project ? root : home;
-  return path.join(base, `.${agent === 'claude' ? 'claude' : agent}`, agent === 'cursor' || agent === 'codex' ? 'hooks.json' : 'settings.json');
+const AGENTS: Agent[] = ['claude', 'codex', 'gemini', 'cursor'];
+/** Penanda entri milik Turnback, supaya install ulang dan uninstall tidak menyentuh entri lain. */
+const MARKER = 'turnback:';
+const TOML_BLOCK = /\n?# turnback begin[\s\S]*?# turnback end\n?/g;
+
+interface AgentSpec {
+  /** Folder konfigurasi, di home (level pengguna) atau root proyek. */
+  dir: string;
+  hooksFile: string;
+  /** Event hook → matcher tool (kosong = semua). */
+  events: Record<string, string>;
+  /** Satuan timeout berbeda: Gemini memakai milidetik, yang lain detik. */
+  timeout: number;
+  /** Cursor menyimpan hook sebagai daftar datar `{ command }`, bukan grup `{ hooks: [...] }`. */
+  flat: boolean;
+  /** Lokasi pendaftaran server MCP; `inline` = di file hook yang sama. */
+  mcp: 'inline' | { file: (base: string, project: boolean) => string; format: 'json' | 'toml' };
 }
-function mcpPath(agent: Agent, project: boolean, root: string): string {
-  if (agent === 'codex') return path.join(project ? path.join(root,'.codex') : path.join(homedir(),'.codex'), 'config.toml');
-  if (agent === 'claude') return project ? path.join(root,'.mcp.json') : path.join(homedir(),'.claude.json');
-  if (agent === 'cursor') return path.join(project ? path.join(root,'.cursor') : path.join(homedir(),'.cursor'), 'mcp.json');
-  return configPath(agent,project,root);
-}
+
+const SPECS: Record<Agent, AgentSpec> = {
+  claude: {
+    dir: '.claude',
+    hooksFile: 'settings.json',
+    events: { SessionStart: '', UserPromptSubmit: '', PreToolUse: 'Bash|PowerShell|Edit|Write|MultiEdit|NotebookEdit', Stop: '' },
+    timeout: 30,
+    flat: false,
+    mcp: { file: (base, project) => path.join(base, project ? '.mcp.json' : '.claude.json'), format: 'json' },
+  },
+  codex: {
+    dir: '.codex',
+    hooksFile: 'hooks.json',
+    events: { SessionStart: '', UserPromptSubmit: '', PreToolUse: 'Bash|apply_patch|Edit|Write', Stop: '' },
+    timeout: 30,
+    flat: false,
+    mcp: { file: base => path.join(base, '.codex', 'config.toml'), format: 'toml' },
+  },
+  gemini: {
+    dir: '.gemini',
+    hooksFile: 'settings.json',
+    events: { SessionStart: '', BeforeAgent: '', BeforeTool: 'write_file|replace|run_shell_command', AfterAgent: '' },
+    timeout: 30_000,
+    flat: false,
+    mcp: 'inline',
+  },
+  cursor: {
+    dir: '.cursor',
+    hooksFile: 'hooks.json',
+    events: { sessionStart: '', beforeSubmitPrompt: '', preToolUse: 'Write|StrReplace|Delete', beforeShellExecution: '', stop: '' },
+    timeout: 30,
+    flat: true,
+    mcp: { file: base => path.join(base, '.cursor', 'mcp.json'), format: 'json' },
+  },
+};
+
+/** Pasang hook dan server MCP. Konfigurasi lain dipertahankan; memanggil ulang tidak menggandakan entri. */
 export function install(which: string, project: boolean, root: string, cli: string, withMcp = true): string[] {
-  const version = spawnSync('git', ['--version'], { encoding: 'utf8' }).stdout?.match(/(\d+)\.(\d+)/);
-  if (!version || Number(version[1]) < 2 || Number(version[1]) === 2 && Number(version[2]) < 25) throw new Error('Git >= 2.25 is required');
-  const selected = which === 'all' ? agents : agents.filter(a => a === which); if (!selected.length) throw new Error(`Unknown agent: ${which}`);
+  requireGit();
   const touched: string[] = [];
-  for (const agent of selected) {
-    const file = configPath(agent,project,root), cfg = json(file), hooks = cfg.hooks ||= {};
-    const command = hookCommand(agent, cli);
-    const events = agent === 'cursor' ? { sessionStart: '', beforeSubmitPrompt: '', preToolUse: 'Write|StrReplace|Delete', beforeShellExecution: '', stop: '' } :
-      agent === 'gemini' ? { SessionStart: '', BeforeAgent: '', BeforeTool: 'write_file|replace|run_shell_command', AfterAgent: '' } :
-      { SessionStart: '', UserPromptSubmit: '', PreToolUse: agent === 'codex' ? 'Bash|apply_patch|Edit|Write' : 'Bash|PowerShell|Edit|Write|MultiEdit|NotebookEdit', Stop: '' };
-    for (const [event, matcher] of Object.entries(events)) {
-      const arr = Array.isArray(hooks[event]) ? hooks[event] : [];
-      const clean = arr.map((group: any) => {
-        if (agent === 'cursor') return group;
-        const hs = Array.isArray(group.hooks) ? group.hooks.filter((h: any) => !String(h.name || h.command).includes(marker)) : [];
-        return { ...group, hooks: hs };
-      }).filter((group: any) => agent === 'cursor' ? !String(group.command).includes(marker) : group.hooks.length);
-      const entry = agent === 'cursor' ? { command: command + ` # ${marker}${event}`, timeout: 30, ...(matcher ? { matcher } : {}) } :
-        { ...(matcher ? { matcher } : {}), hooks: [{ type: 'command', command: command + ` # ${marker}${event}`, name: `turnback:${event}`, timeout: agent === 'gemini' ? 30000 : 30 }] };
-      hooks[event] = [...clean, entry];
+  for (const agent of selectAgents(which)) {
+    const spec = SPECS[agent];
+    const base = project ? root : homedir();
+    const file = path.join(base, spec.dir, spec.hooksFile);
+    const config = readJson(file);
+    const hooks = config.hooks ??= {};
+    for (const [event, matcher] of Object.entries(spec.events)) {
+      hooks[event] = [...withoutTurnback(spec, hooks[event]), hookEntry(agent, spec, event, matcher, cli)];
     }
-    if (agent === 'cursor') cfg.version = 1;
-    if (agent === 'gemini' && withMcp) (cfg.mcpServers ||= {}).turnback = mcpConfig(cli);
-    save(file,cfg); touched.push(file);
-    if (withMcp && agent !== 'gemini') {
-      const mfile = mcpPath(agent,project,root);
-      if (agent === 'codex') {
-        const old = existsSync(mfile) ? readFileSync(mfile,'utf8') : '';
-        const start = '# turnback begin', end = '# turnback end';
-        const clean = old.replace(/\n?# turnback begin[\s\S]*?# turnback end\n?/g,'\n');
-        writeFileSync(mfile, clean.trimEnd() + `\n\n${start}\n[mcp_servers.turnback]\ncommand = "node"\nargs = [${JSON.stringify(cli)}, "mcp"]\n${end}\n`);
-      } else { const m = json(mfile); (m.mcpServers ||= {}).turnback = mcpConfig(cli); save(mfile,m); }
-      touched.push(mfile);
+    if (spec.flat) config.version = 1;
+    if (withMcp && spec.mcp === 'inline') (config.mcpServers ??= {}).turnback = mcpServer(cli);
+    writeJson(file, config);
+    touched.push(file);
+
+    if (withMcp && spec.mcp !== 'inline') {
+      const mcpFile = spec.mcp.file(base, project);
+      if (spec.mcp.format === 'toml') writeToml(mcpFile, cli);
+      else updateJson(mcpFile, m => { (m.mcpServers ??= {}).turnback = mcpServer(cli); });
+      touched.push(mcpFile);
     }
   }
   return touched;
 }
+
+/** Hapus hanya entri milik Turnback. */
 export function uninstall(which: string, project: boolean, root: string): string[] {
-  const selected = which === 'all' ? agents : agents.filter(a => a === which); if (!selected.length) throw new Error(`Unknown agent: ${which}`);
   const touched: string[] = [];
-  for (const agent of selected) {
-    const file = configPath(agent,project,root);
-    if (existsSync(file)) { const cfg = json(file); if (cfg.hooks) for (const [event, groups] of Object.entries(cfg.hooks)) if (Array.isArray(groups)) cfg.hooks[event] = groups.map((g: any) => agent === 'cursor' ? g : { ...g, hooks: Array.isArray(g.hooks) ? g.hooks.filter((h: any) => !String(h.name || h.command).includes(marker)) : [] }).filter((g: any) => agent === 'cursor' ? !String(g.command).includes(marker) : g.hooks.length); if (agent === 'gemini') delete cfg.mcpServers?.turnback; save(file,cfg); touched.push(file); }
-    const mfile = mcpPath(agent,project,root);
-    if (agent !== 'gemini' && existsSync(mfile)) { if (agent === 'codex') writeFileSync(mfile, readFileSync(mfile,'utf8').replace(/\n?# turnback begin[\s\S]*?# turnback end\n?/g,'\n')); else { const m = json(mfile); delete m.mcpServers?.turnback; save(mfile,m); } touched.push(mfile); }
+  for (const agent of selectAgents(which)) {
+    const spec = SPECS[agent];
+    const base = project ? root : homedir();
+    const file = path.join(base, spec.dir, spec.hooksFile);
+    if (existsSync(file)) {
+      updateJson(file, config => {
+        for (const event of Object.keys(config.hooks ?? {})) config.hooks[event] = withoutTurnback(spec, config.hooks[event]);
+        if (spec.mcp === 'inline') delete config.mcpServers?.turnback;
+      });
+      touched.push(file);
+    }
+    if (spec.mcp === 'inline') continue;
+    const mcpFile = spec.mcp.file(base, project);
+    if (!existsSync(mcpFile)) continue;
+    if (spec.mcp.format === 'toml') writeFileSync(mcpFile, readFileSync(mcpFile, 'utf8').replace(TOML_BLOCK, '\n'));
+    else updateJson(mcpFile, m => { delete m.mcpServers?.turnback; });
+    touched.push(mcpFile);
   }
   return touched;
+}
+
+function requireGit(): void {
+  const match = spawnSync('git', ['--version'], { encoding: 'utf8' }).stdout?.match(/(\d+)\.(\d+)/);
+  const [major, minor] = match ? [Number(match[1]), Number(match[2])] : [0, 0];
+  if (major < 2 || (major === 2 && minor < 25)) throw new Error('Git >= 2.25 is required');
+}
+
+function selectAgents(which: string): Agent[] {
+  const selected = which === 'all' ? AGENTS : AGENTS.filter(a => a === which);
+  if (!selected.length) throw new Error(`Unknown agent: ${which}`);
+  return selected;
+}
+
+function hookEntry(agent: Agent, spec: AgentSpec, event: string, matcher: string, cli: string) {
+  const command = `node "${cli.replaceAll('"', '\\"')}" hook ${agent} # ${MARKER}${event}`;
+  const match = matcher ? { matcher } : {};
+  if (spec.flat) return { command, timeout: spec.timeout, ...match };
+  return { ...match, hooks: [{ type: 'command', command, name: `${MARKER}${event}`, timeout: spec.timeout }] };
+}
+
+const isTurnback = (hook: any) => String(hook?.name || hook?.command).includes(MARKER);
+
+/** Buang entri Turnback dari daftar hook satu event; grup yang jadi kosong ikut dibuang. */
+function withoutTurnback(spec: AgentSpec, groups: unknown): any[] {
+  if (!Array.isArray(groups)) return [];
+  if (spec.flat) return groups.filter(g => !isTurnback(g));
+  return groups
+    .map(g => ({ ...g, hooks: Array.isArray(g?.hooks) ? g.hooks.filter((h: any) => !isTurnback(h)) : [] }))
+    .filter(g => g.hooks.length);
+}
+
+const mcpServer = (cli: string) => ({ command: 'node', args: [cli, 'mcp'] });
+
+function writeToml(file: string, cli: string): void {
+  const old = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  const block = `# turnback begin\n[mcp_servers.turnback]\ncommand = "node"\nargs = [${JSON.stringify(cli)}, "mcp"]\n# turnback end\n`;
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, `${old.replace(TOML_BLOCK, '\n').trimEnd()}\n\n${block}`);
+}
+
+/** File yang ada tapi tidak bisa dibaca sebagai JSON tidak ditimpa, supaya konfigurasi pengguna tidak hilang. */
+function readJson(file: string): any {
+  if (!existsSync(file)) return {};
+  const text = readFileSync(file, 'utf8');
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Cannot parse ${file} as JSON; fix it or add the Turnback entries manually`);
+  }
+}
+
+function writeJson(file: string, value: unknown): void {
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, JSON.stringify(value, null, 2) + '\n');
+}
+
+function updateJson(file: string, change: (value: any) => void): void {
+  const value = readJson(file);
+  change(value);
+  writeJson(file, value);
 }

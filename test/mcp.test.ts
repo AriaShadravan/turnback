@@ -1,58 +1,81 @@
-import { it, expect } from 'vitest';
-import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
-import { record } from '../src/core.js';
+import { beforeEach, expect, it } from 'vitest';
+import { CLI, hook, tempProject } from './helpers.js';
 
-it('serves read tools and two-step restore over SDK stdio', async () => {
-  const root = mkdtempSync(path.join(tmpdir(),'turnback-mcp-'));
-  process.env.TURNBACK_HOME = mkdtempSync(path.join(tmpdir(),'turnback-mcp-data-'));
-  spawnSync('git',['init',root]); writeFileSync(path.join(root,'a.txt'),'old');
-  record({ agent:'codex',session:'s',turn:'t',cwd:root,kind:'edit',paths:['a.txt'] });
-  writeFileSync(path.join(root,'a.txt'),'new');
-  record({ agent:'codex',session:'s',turn:'t',cwd:root,kind:'turn-end' });
-  const client = new Client({ name:'test', version:'1.0.0' });
-  const transport = new StdioClientTransport({ command: process.execPath, args: [path.resolve('dist/cli.js'),'mcp'], env: { ...process.env, TURNBACK_HOME: process.env.TURNBACK_HOME } });
-  await client.connect(transport);
-  try {
-    const listed = await client.listTools();
-    expect(listed.tools.map(t => t.name).sort()).toEqual(['diff_turn','list_turns','redo','restore','status']);
-    expect(listed.tools.find(t => t.name === 'restore')?.annotations?.destructiveHint).toBe(true);
-    const preview = await client.callTool({ name:'restore', arguments:{target:'t',workspace:root} });
-    const token = (preview.structuredContent as any).confirm_token;
-    expect(token).toBeTypeOf('string');
-    const result = await client.callTool({ name:'restore', arguments:{target:'t',workspace:root,token} });
-    expect((result.structuredContent as any).applied).toContain('a.txt');
-    expect(readFileSync(path.join(root,'a.txt'),'utf8')).toBe('old');
-    const stalePreview = await client.callTool({ name:'redo', arguments:{workspace:root} });
-    writeFileSync(path.join(root,'a.txt'),'manual');
-    const stale = await client.callTool({ name:'redo', arguments:{workspace:root,token:(stalePreview.structuredContent as any).confirm_token} });
-    expect(stale.isError).toBe(true);
-    const redoPreview = await client.callTool({ name:'redo', arguments:{workspace:root} });
-    const cautious = await client.callTool({ name:'redo', arguments:{workspace:root,token:(redoPreview.structuredContent as any).confirm_token} });
-    expect((cautious.structuredContent as any).skipped).toContain('a.txt');
-    expect(readFileSync(path.join(root,'a.txt'),'utf8')).toBe('manual');
-  } finally { await client.close(); }
-}, 15000);
+let p: ReturnType<typeof tempProject>;
 
-it('uses inputRequired for a modern client that approves manual edits', async () => {
-  const root = mkdtempSync(path.join(tmpdir(),'turnback-mcp-'));
-  process.env.TURNBACK_HOME = mkdtempSync(path.join(tmpdir(),'turnback-mcp-data-'));
-  spawnSync('git',['init',root]); writeFileSync(path.join(root,'a.txt'),'old');
-  record({agent:'codex',session:'s',turn:'t',cwd:root,kind:'edit',paths:['a.txt']});
-  writeFileSync(path.join(root,'a.txt'),'agent'); record({agent:'codex',session:'s',turn:'t',cwd:root,kind:'turn-end'});
-  writeFileSync(path.join(root,'a.txt'),'manual');
-  const client = new Client({name:'modern-test',version:'1.0.0'}, {capabilities:{elicitation:{form:{}}},versionNegotiation:{mode:{pin:'2026-07-28'}}});
-  client.setRequestHandler('elicitation/create', async () => ({action:'accept',content:{approve:true}}));
-  const transport = new StdioClientTransport({command:process.execPath,args:[path.resolve('dist/cli.js'),'mcp'],env:{...process.env,TURNBACK_HOME:process.env.TURNBACK_HOME}});
+/** Satu giliran Codex yang mengubah a.txt dari "old" ke "agent". */
+beforeEach(() => {
+  p = tempProject('turnback-mcp-');
+  p.write('a.txt', 'old');
+  hook(p.root, 'edit', 't', { paths: [p.file('a.txt')] });
+  p.write('a.txt', 'agent');
+  hook(p.root, 'turn-end', 't');
+});
+
+async function connect(client: Client) {
+  const transport = new StdioClientTransport({ command: process.execPath, args: [CLI, 'mcp'], env: { ...process.env, TURNBACK_HOME: p.home } });
   await client.connect(transport);
+  return client;
+}
+
+async function call(client: Client, name: string, args: Record<string, unknown>) {
+  const result = await client.callTool({ name, arguments: { workspace: p.root, ...args } });
+  return { ...result, data: result.structuredContent as any };
+}
+
+it('serves read tools and a two-step restore', async () => {
+  const client = await connect(new Client({ name: 'test', version: '1.0.0' }));
   try {
-    const preview = await client.callTool({name:'restore',arguments:{target:'t',workspace:root}});
-    const result = await client.callTool({name:'restore',arguments:{target:'t',workspace:root,token:(preview.structuredContent as any).confirm_token}});
-    expect((result.structuredContent as any).applied).toContain('a.txt');
-    expect(readFileSync(path.join(root,'a.txt'),'utf8')).toBe('old');
-  } finally { await client.close(); }
-}, 15000);
+    const { tools } = await client.listTools();
+    expect(tools.map(t => t.name).sort()).toEqual(['diff_turn', 'list_turns', 'redo', 'restore', 'status']);
+    expect(tools.find(t => t.name === 'restore')?.annotations?.destructiveHint).toBe(true);
+    expect(tools.find(t => t.name === 'list_turns')?.annotations?.readOnlyHint).toBe(true);
+    expect((await call(client, 'list_turns', {})).data.turns[0].changedFiles).toBe(1);
+
+    const preview = await call(client, 'restore', { target: 't' });
+    expect(preview.data.confirm_token).toBeTypeOf('string');
+    expect(p.read('a.txt')).toBe('agent');
+
+    const restored = await call(client, 'restore', { target: 't', token: preview.data.confirm_token });
+    expect(restored.data.applied).toContain('a.txt');
+    expect(p.read('a.txt')).toBe('old');
+  } finally {
+    await client.close();
+  }
+}, 15_000);
+
+it('rejects a stale token and skips manual edits without elicitation', async () => {
+  const client = await connect(new Client({ name: 'test', version: '1.0.0' }));
+  try {
+    const first = await call(client, 'restore', { target: 't' });
+    await call(client, 'restore', { target: 't', token: first.data.confirm_token });
+
+    const stalePreview = await call(client, 'redo', {});
+    p.write('a.txt', 'manual');
+    expect((await call(client, 'redo', { token: stalePreview.data.confirm_token })).isError).toBe(true);
+
+    const preview = await call(client, 'redo', {});
+    const cautious = await call(client, 'redo', { token: preview.data.confirm_token });
+    expect(cautious.data.skipped).toContain('a.txt');
+    expect(p.read('a.txt')).toBe('manual');
+  } finally {
+    await client.close();
+  }
+}, 15_000);
+
+it('asks a modern client to approve overwriting manual edits', async () => {
+  p.write('a.txt', 'manual');
+  const client = new Client({ name: 'modern-test', version: '1.0.0' }, { capabilities: { elicitation: { form: {} } }, versionNegotiation: { mode: { pin: '2026-07-28' } } });
+  client.setRequestHandler('elicitation/create', async () => ({ action: 'accept', content: { approve: true } }));
+  await connect(client);
+  try {
+    const preview = await call(client, 'restore', { target: 't' });
+    const result = await call(client, 'restore', { target: 't', token: preview.data.confirm_token });
+    expect(result.data.applied).toContain('a.txt');
+    expect(p.read('a.txt')).toBe('old');
+  } finally {
+    await client.close();
+  }
+}, 15_000);
