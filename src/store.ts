@@ -5,6 +5,7 @@ import {
   workspaceDataDir, workspaceRoot,
 } from './config.js';
 import { Journal, turnKey } from './journal.js';
+import { QUOTE_SAFE } from './quote.js';
 import { LockTimeoutError, waitForUnlock, withLock } from './lock.js';
 import { ShadowRepo } from './shadow.js';
 import type { Entry, EntryKind, EntryOrigin, Mark, Mode, NewEntry, Step, Turn } from './types.js';
@@ -274,6 +275,7 @@ export class Store {
   mark(label: string): Mark {
     const name = label.trim();
     if (!name) throw new Error('A mark needs a label');
+    if (!QUOTE_SAFE.test(name)) throw new Error('Mark labels may contain letters, digits, spaces, and _ . : / @ # + , = - only, so they can be pasted into a shell');
     if (this.mode() === 'edits-only') throw new Error('Marks are unavailable in edits-only mode: only edited paths are snapshotted');
     const entry = this.snapshot('mark', { agent: 'turnback', session: 'mark', turn: name });
     if (entry.status !== 'ok' || !entry.ref) throw new Error(`Mark failed: ${entry.note ?? entry.status}`);
@@ -294,15 +296,27 @@ export class Store {
     if (!turn) throw new Error(`Unknown turn: ${id}`);
     // A failed baseline is followed by an `unprotected` entry for the same tool call.
     const calls = turn.entries.filter(e => e.kind === 'edit' || e.kind === 'shell' || (e.kind === 'baseline' && e.status === 'ok'));
-    return calls.map((e, i) => ({
-      n: i + 1,
-      kind: e.command !== undefined ? 'shell' : 'edit',
-      time: e.time,
-      command: e.command,
-      paths: e.paths ? this.relativePaths(e.paths) : undefined,
-      ref: e.status === 'ok' ? e.ref : undefined,
-      status: e.status,
-    }));
+    const scoped = this.mode() === 'full';
+    let shellSeen = false, gap = false;
+    return calls.map((e, i) => {
+      const kind = e.command !== undefined ? 'shell' : 'edit';
+      // Before any shell step, an edit snapshot only refreshes the previous edit's paths. If an earlier
+      // snapshot is missing, this one can hold stale content for the files that step changed.
+      const stale = scoped && kind === 'edit' && !shellSeen && gap;
+      const step: Step = {
+        n: i + 1,
+        kind,
+        time: e.time,
+        command: e.command,
+        paths: e.paths ? this.relativePaths(e.paths) : undefined,
+        ref: e.status === 'ok' && !stale ? e.ref : undefined,
+        status: e.status,
+        reason: stale && e.status === 'ok' ? 'an earlier step has no snapshot, so this one may miss its changes' : undefined,
+      };
+      if (!(e.status === 'ok' && e.ref)) gap = true;
+      if (kind === 'shell') shellSeen = true;
+      return step;
+    });
   }
 
   /** Snapshot ref to restore the workspace to just before step `n` of a turn. */
@@ -310,7 +324,7 @@ export class Store {
     const steps = this.steps(id);
     const step = Number.isInteger(n) ? steps[n - 1] : undefined;
     if (!step) throw new Error(`Turn ${id} has ${steps.length} steps; choose 1 to ${steps.length}`);
-    if (!step.ref) throw new Error(`Step ${n} has no snapshot (${step.status}); choose another step`);
+    if (!step.ref) throw new Error(`Step ${n} has no snapshot to restore (${step.reason ?? step.status}); choose another step`);
     return step.ref;
   }
 

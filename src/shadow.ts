@@ -21,6 +21,8 @@ export class ShadowRepo {
   readonly gitDir: string;
   private readonly indexRefFile: string;
   private oidLength?: number;
+  /** Snapshot refs never change once written, so their diffs can be cached for the life of the process. */
+  private readonly names = new Map<string, string[]>();
 
   constructor(private readonly dataDir: string, private readonly root: string) {
     this.gitDir = path.join(dataDir, 'repo.git');
@@ -192,7 +194,10 @@ export class ShadowRepo {
   }
 
   diffNames(a: string, b: string): string[] {
-    return this.list(['diff', '--name-only', '-z', a, b]);
+    const key = `${a}..${b}`;
+    let names = this.names.get(key);
+    if (!names) this.names.set(key, names = this.list(['diff', '--name-only', '-z', a, b]));
+    return names;
   }
 
   private run(args: string[], input?: string | Buffer): string {

@@ -1,7 +1,9 @@
+import { BARE_SAFE, QUOTE_SAFE } from './quote.js';
+
 /**
  * The single page of `turnback ui`: turn list on the left, the selected turn's steps and diff on the right.
  * Data is always inserted with textContent. String.raw keeps the page's own backslashes; the page script
- * uses no template literals, so nothing here is interpolated by TypeScript.
+ * uses no template literals, so the only interpolations are the shared quoting rules from quote.ts.
  */
 export const UI_PAGE = String.raw`<!doctype html>
 <html lang="en">
@@ -115,7 +117,15 @@ pre.diff span { display: block; padding: 0 14px; white-space: pre; }
     return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
   }
   function files(n) { return n + (n === 1 ? ' file' : ' files'); }
-  function quote(s) { return /^[A-Za-z0-9_.:\/-]+$/.test(s) ? s : JSON.stringify(s); }
+  // Same rules as shellArg in quote.ts: a bare word, a double-quoted literal, or nothing.
+  function quote(s) {
+    if (/${BARE_SAFE.source}/.test(s)) return s;
+    if (/${QUOTE_SAFE.source}/u.test(s)) return '"' + s + '"';
+    return null;
+  }
+  function line(before, arg, after) {
+    return arg === null ? null : (before + ' ' + arg + (after ? ' ' + after : ''));
+  }
   function getJson(url) {
     return fetch(url, { cache: 'no-store' }).then(function (res) {
       if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
@@ -131,6 +141,7 @@ pre.diff span { display: block; padding: 0 14px; white-space: pre; }
     selection.addRange(range);
   }
   function command(text) {
+    if (text === null) return el('p', 'hint', 'This name has characters that are unsafe to paste into a shell. Use the CLI with turnback list --json instead.');
     var row = el('div', 'cmd');
     var code = el('code', null, text);
     var button = el('button', 'copy', 'Copy');
@@ -182,7 +193,7 @@ pre.diff span { display: block; padding: 0 14px; white-space: pre; }
       var item = el('div', 'mark');
       item.appendChild(el('div', 'meta', when(m.time)));
       item.appendChild(el('div', 'prompt', m.label));
-      item.appendChild(command('turnback restore ' + quote(m.label) + ' --dry-run'));
+      item.appendChild(command(line('turnback restore', quote(m.label), '--dry-run')));
       marks.appendChild(item);
     });
   }
@@ -203,7 +214,7 @@ pre.diff span { display: block; padding: 0 14px; white-space: pre; }
       var detail = s.kind === 'shell' ? (s.command || '') : (s.paths || []).join(', ');
       head.appendChild(el('code', 'step-detail', detail));
       item.appendChild(head);
-      if (s.ref) item.appendChild(command('turnback restore ' + quote(turn.id) + ' --before-step ' + s.n + ' --dry-run'));
+      if (s.ref) item.appendChild(command(line('turnback restore', quote(turn.id), '--before-step ' + s.n + ' --dry-run')));
       else item.appendChild(el('div', 'hint', 'No snapshot (' + s.status + '); this step cannot be restored.'));
       list.appendChild(item);
     });
@@ -225,7 +236,7 @@ pre.diff span { display: block; padding: 0 14px; white-space: pre; }
     }
     if (data.truncated) {
       container.appendChild(el('p', 'notice', 'This diff is too large to show in full. Run the command below for the whole patch.'));
-      container.appendChild(command('turnback diff ' + quote(turn.id)));
+      container.appendChild(command(line('turnback diff', quote(turn.id), '')));
     }
     var pre = el('pre', 'diff');
     data.diff.split('\n').forEach(function (line) { pre.appendChild(el('span', lineClass(line), line)); });
@@ -247,7 +258,7 @@ pre.diff span { display: block; padding: 0 14px; white-space: pre; }
 
     detail.appendChild(el('h3', null, 'Undo this turn'));
     detail.appendChild(el('p', 'hint', 'Preview first; add --yes to apply. The UI never changes files itself.'));
-    detail.appendChild(command('turnback restore ' + quote(turn.id) + ' --dry-run'));
+    detail.appendChild(command(line('turnback restore', quote(turn.id), '--dry-run')));
 
     detail.appendChild(el('h3', null, 'Steps'));
     detail.appendChild(el('p', 'hint', 'Restoring to just before a step keeps the work of the steps above it.'));

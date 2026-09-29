@@ -25,7 +25,7 @@ export function formatSteps(steps: Step[]): string {
   if (!steps.length) return 'No edit or shell steps in this turn.';
   return steps.map(s => {
     const detail = s.kind === 'shell' ? s.command ?? '' : (s.paths ?? []).join(', ');
-    const missing = s.ref ? '' : `  (no snapshot: ${s.status})`;
+    const missing = s.ref ? '' : `  (no snapshot: ${s.reason ?? s.status})`;
     return `${s.n}. ${localTime(s.time).slice(11)}  ${s.kind.padEnd(5)}  ${detail}${missing}`;
   }).join('\n');
 }

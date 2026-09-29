@@ -7,6 +7,7 @@ import { hookResponse, parseHook } from './adapters.js';
 import { dataHome } from './config.js';
 import { formatMarks, formatSteps, formatTurns } from './format.js';
 import { install, uninstall } from './install.js';
+import { shellArg } from './quote.js';
 import { record } from './recorder.js';
 import { applyRestore, planRestore, redoTarget, undoTarget, type Operation } from './restore.js';
 import { Store } from './store.js';
@@ -144,7 +145,7 @@ async function main(): Promise<void> {
     }
     case 'mark': {
       const mark = store.mark(args.positional.join(' '));
-      output(`Marked ${JSON.stringify(mark.label)} (${mark.ref}). Restore it with: turnback restore ${JSON.stringify(mark.label)} --dry-run`);
+      output(`Marked ${JSON.stringify(mark.label)} (${mark.ref}). Restore it with: turnback restore ${shellArg(mark.label)} --dry-run`);
       return;
     }
     case 'marks': {

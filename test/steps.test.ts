@@ -45,3 +45,23 @@ it('refuses steps that do not exist or have no snapshot', () => {
   store.log({ agent: 'codex', session: 's', turn: 't', kind: 'shell', command: 'rm -rf x', status: 'unprotected' });
   expect(() => store.stepRef('t', 4)).toThrow(/no snapshot/);
 });
+
+it('refuses a step whose snapshot may miss an earlier step without one', () => {
+  const p = tempProject('turnback-steps-gap-');
+  for (const f of ['a.txt', 'b.txt', 'c.txt']) p.write(f, '0');
+  const store = new Store(p.root);
+  hook(p.root, 'edit', 't', { paths: [p.file('a.txt')] });
+  p.write('a.txt', '1');
+  // The snapshot for editing b.txt timed out on the lock.
+  store.log({ agent: 'codex', session: 's', turn: 't', kind: 'edit', paths: [p.file('b.txt')], status: 'skipped' });
+  p.write('b.txt', '1');
+  hook(p.root, 'edit', 't', { paths: [p.file('c.txt')] });
+  p.write('c.txt', '1');
+  hook(p.root, 'turn-end', 't');
+
+  const steps = store.steps('t');
+  expect(steps[2].ref).toBeUndefined();
+  expect(steps[2].reason).toMatch(/earlier step/);
+  expect(() => store.stepRef('t', 3)).toThrow(/earlier step/);
+  expect(store.stepRef('t', 1)).toMatch(/^refs\//);
+});

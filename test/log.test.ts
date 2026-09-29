@@ -32,3 +32,19 @@ it('rejects paths outside the workspace', () => {
   const p = tempProject('turnback-log-out-');
   expect(() => new Store(p.root).fileHistory(path.resolve(p.root, '..', 'elsewhere.txt'))).toThrow(/outside workspace/);
 });
+
+it('asks git for the changed files of each turn only once per process', async () => {
+  const { vi } = await import('vitest');
+  const p = tempProject('turnback-log-cache-');
+  p.write('a.txt', '0');
+  editTurn(p, 't1', 'a.txt', '1');
+  editTurn(p, 't2', 'a.txt', '2');
+  const store = new Store(p.root);
+  const spy = vi.spyOn(store.repo, 'diffNames');
+  const git = vi.spyOn(store.repo as any, 'list');
+  store.turns().map(t => store.summarize(t));
+  store.fileHistory(p.file('a.txt'));
+  store.turns().map(t => store.summarize(t));
+  expect(spy).toHaveBeenCalledTimes(6);
+  expect(git).toHaveBeenCalledTimes(2);
+});

@@ -72,6 +72,8 @@ export interface Step {
   /** Snapshot taken just before this step; missing when it failed, was skipped, or is unprotected. */
   ref?: string;
   status: EntryStatus;
+  /** Why a recorded step cannot be restored to, when its status alone does not say. */
+  reason?: string;
 }
 
 export type Mode = 'full' | 'edits-only';
