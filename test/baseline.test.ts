@@ -63,7 +63,8 @@ it('splits a large first snapshot into several imports and keeps it complete', (
   hook(p.root, 'turn-end');
   applyRestore(store, 't1');
   for (let i = 0; i < 250; i++) expect(p.read(`src/f${i}.txt`)).toBe(`file ${i}\n`);
-});
+  // Hundreds of small fast-import runs; on a busy Windows machine this can pass 30 s.
+}, 120_000);
 
 it('detects the next change against an imported baseline without rescanning content', () => {
   writeFiles(30);

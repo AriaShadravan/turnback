@@ -32,7 +32,7 @@ export class ShadowRepo {
     if (existsSync(attributes)) return;
     if (!existsSync(this.gitDir)) {
       mkdirSync(this.dataDir, { recursive: true });
-      const r = spawnSync('git', ['init', '--bare', this.gitDir], { encoding: 'utf8', timeout: 10_000 });
+      const r = spawnSync('git', ['init', '--bare', this.gitDir], { encoding: 'utf8', timeout: 10_000, windowsHide: true });
       if (r.status !== 0) throw new Error(r.stderr || 'git init failed');
       mkdirSync(path.join(this.gitDir, 'info'), { recursive: true });
       writeFileSync(path.join(this.gitDir, 'info', 'exclude'), [...EXCLUDED_DIRS].map(d => `${d}/\n`).join(''));
@@ -119,7 +119,7 @@ export class ShadowRepo {
     this.run(['fast-import', '--quiet', '--done'], `${header}${tree.join('')}\ndone\n`);
     this.run(['read-tree', ref]);
     // Exits 1 when some entries still differ (a file changed meanwhile); diff-files reports those later.
-    spawnSync('git', this.baseArgs(['update-index', '-q', '--refresh']), { cwd: this.root, timeout: 180_000 });
+    spawnSync('git', this.baseArgs(['update-index', '-q', '--refresh']), { cwd: this.root, timeout: 180_000, windowsHide: true });
     writeFileSync(this.indexRefFile, ref);
     return ref;
   }
@@ -142,7 +142,7 @@ export class ShadowRepo {
   isCorrupt(): boolean {
     if (!existsSync(this.gitDir)) return false;
     for (const args of [['fsck', '--no-progress', '--connectivity-only', '--no-dangling'], ['ls-files', '--stage']]) {
-      const r = spawnSync('git', this.baseArgs(args), { cwd: this.root, timeout: 120_000, stdio: 'ignore' });
+      const r = spawnSync('git', this.baseArgs(args), { cwd: this.root, timeout: 120_000, stdio: 'ignore', windowsHide: true });
       if (r.error) return false;
       if (r.status !== 0) return true;
     }
@@ -172,7 +172,7 @@ export class ShadowRepo {
   }
 
   blob(oid: string): Buffer {
-    const r = spawnSync('git', [`--git-dir=${this.gitDir}`, 'cat-file', 'blob', oid], { timeout: 30_000, maxBuffer: MAX_FILE_BYTES + 1024 });
+    const r = spawnSync('git', [`--git-dir=${this.gitDir}`, 'cat-file', 'blob', oid], { timeout: 30_000, maxBuffer: MAX_FILE_BYTES + 1024, windowsHide: true });
     if (r.status !== 0) throw new Error(`git cat-file: ${String(r.stderr).trim()}`);
     return r.stdout;
   }
@@ -203,6 +203,7 @@ export class ShadowRepo {
       input,
       timeout: args[0] === 'add' || args[0] === 'fast-import' ? 180_000 : 30_000,
       maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true,
     });
     if (process.env.TURNBACK_TRACE_GIT) process.stderr.write(`git ${args[0]} ${Math.round(performance.now() - start)}ms\n`);
     if (r.error?.message.includes('ETIMEDOUT')) {
@@ -213,7 +214,7 @@ export class ShadowRepo {
   }
 
   private check(args: string[]): boolean {
-    return spawnSync('git', this.baseArgs(args), { cwd: this.root, timeout: 5_000 }).status === 0;
+    return spawnSync('git', this.baseArgs(args), { cwd: this.root, timeout: 5_000, windowsHide: true }).status === 0;
   }
 
   private list(args: string[]): string[] {

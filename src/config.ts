@@ -41,7 +41,7 @@ const roots = new Map<string, string>();
 export function workspaceRoot(cwd: string): string {
   const cached = roots.get(cwd);
   if (cached) return cached;
-  const r = spawnSync('git', ['-C', cwd, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', timeout: 1500 });
+  const r = spawnSync('git', ['-C', cwd, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', timeout: 1500, windowsHide: true });
   const root = r.status === 0 ? path.resolve(r.stdout.trim()) : canonicalPath(cwd);
   roots.set(cwd, root);
   return root;

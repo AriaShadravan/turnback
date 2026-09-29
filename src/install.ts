@@ -131,7 +131,7 @@ export function uninstall(which: string, project: boolean, root: string): string
 }
 
 function requireGit(): void {
-  const match = spawnSync('git', ['--version'], { encoding: 'utf8' }).stdout?.match(/(\d+)\.(\d+)/);
+  const match = spawnSync('git', ['--version'], { encoding: 'utf8', windowsHide: true }).stdout?.match(/(\d+)\.(\d+)/);
   const [major, minor] = match ? [Number(match[1]), Number(match[2])] : [0, 0];
   if (major < 2 || (major === 2 && minor < 25)) throw new Error('Git >= 2.25 is required');
 }
