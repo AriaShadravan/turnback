@@ -4,6 +4,15 @@ Turnback records file state before and during a coding agent's turn, then restor
 
 Supports Claude Code, Codex, Gemini CLI, Cursor, OpenCode, and Antigravity CLI. Requires Node.js 22+ and Git 2.25+. Claude Code, Codex, OpenCode, and Antigravity CLI have been tested live; Gemini CLI and Cursor are covered by tests built from their documented hook payloads.
 
+In Claude Code:
+
+```bash
+claude plugin marketplace add MFaizR77/turnback
+claude plugin install turnback@turnback
+```
+
+Then use `/turnback:turns`, `/turnback:diff-turn`, and `/turnback:undo`. For other agents, or to use the CLI directly:
+
 ```bash
 npm install -g turnback
 turnback install all --project
