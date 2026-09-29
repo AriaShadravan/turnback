@@ -7,7 +7,7 @@ import {
 import { Journal, turnKey } from './journal.js';
 import { LockTimeoutError, waitForUnlock, withLock } from './lock.js';
 import { ShadowRepo } from './shadow.js';
-import type { Entry, EntryKind, EntryOrigin, Mode, NewEntry, Turn } from './types.js';
+import type { Entry, EntryKind, EntryOrigin, Mode, NewEntry, Step, Turn } from './types.js';
 import { Workspace, type Scan } from './workspace.js';
 
 const WARM_ORIGIN: EntryOrigin = { agent: 'turnback', session: 'warm', turn: 'warm' };
@@ -256,6 +256,32 @@ export class Store {
     if (!turn?.end) throw new Error(`Unknown or incomplete turn: ${id}`);
     const diff = patch ? this.repo.diffPatch(turn.baseline, turn.end) : this.repo.diffStat(turn.baseline, turn.end);
     return { turn: turn.id, diff };
+  }
+
+  /** Edit and shell steps of a turn, in order. Each ref is the snapshot taken just before that step ran. */
+  steps(id: string): Step[] {
+    const turn = this.findTurn(id);
+    if (!turn) throw new Error(`Unknown turn: ${id}`);
+    // A failed baseline is followed by an `unprotected` entry for the same tool call.
+    const calls = turn.entries.filter(e => e.kind === 'edit' || e.kind === 'shell' || (e.kind === 'baseline' && e.status === 'ok'));
+    return calls.map((e, i) => ({
+      n: i + 1,
+      kind: e.command !== undefined ? 'shell' : 'edit',
+      time: e.time,
+      command: e.command,
+      paths: e.paths ? this.relativePaths(e.paths) : undefined,
+      ref: e.status === 'ok' ? e.ref : undefined,
+      status: e.status,
+    }));
+  }
+
+  /** Snapshot ref to restore the workspace to just before step `n` of a turn. */
+  stepRef(id: string, n: number): string {
+    const steps = this.steps(id);
+    const step = Number.isInteger(n) ? steps[n - 1] : undefined;
+    if (!step) throw new Error(`Turn ${id} has ${steps.length} steps; choose 1 to ${steps.length}`);
+    if (!step.ref) throw new Error(`Step ${n} has no snapshot (${step.status}); choose another step`);
+    return step.ref;
   }
 
   // ---- Status and cleanup ----

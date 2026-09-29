@@ -52,6 +52,20 @@ export type NewEntry = Omit<Entry, 'id' | 'time'>;
 /** Owner identity of a journal entry, plus the recorded event details. */
 export type EntryOrigin = Pick<Entry, 'agent' | 'session' | 'turn'> & Partial<Pick<Entry, 'paths' | 'command'>>;
 
+/** One mutating tool call inside a turn. */
+export interface Step {
+  /** 1-based position in the turn. */
+  n: number;
+  kind: 'edit' | 'shell';
+  time: string;
+  command?: string;
+  /** Workspace-relative paths the edit tool touched. */
+  paths?: string[];
+  /** Snapshot taken just before this step; missing when it failed, was skipped, or is unprotected. */
+  ref?: string;
+  status: EntryStatus;
+}
+
 export type Mode = 'full' | 'edits-only';
 
 export interface Turn {
