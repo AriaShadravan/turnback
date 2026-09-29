@@ -2,7 +2,7 @@
 
 `node dist/cli.js mcp` runs a stdio server. `install` registers it for the selected agents. This process's stdout carries only the MCP protocol.
 
-Read tools: `list_turns`, `diff_turn`, `status`. Write tools: `restore`, `redo`. All accept an optional `workspace`. `restore` takes a `target` (turn ID or snapshot ref) and optional `paths`; `redo` uses the safety snapshot of the last restore. The first call without `token` returns a plan and a `confirm_token`. The second call sends that token as `token`. The server rechecks the plan under the lock before writing.
+Read tools: `list_turns`, `diff_turn`, `turn_steps`, `status`. Write tools: `restore`, `redo`. All accept an optional `workspace`. `restore` takes a `target` (turn ID, mark label, or snapshot ref such as a step `ref` from `turn_steps`) and optional `paths`; `redo` uses the safety snapshot of the last restore. The first call without `token` returns a plan and a `confirm_token`. The second call sends that token as `token`. The server rechecks the plan under the lock before writing.
 
 ```json
 {"name":"restore","arguments":{"target":"<turn-id>","workspace":"/path/to/project"}}

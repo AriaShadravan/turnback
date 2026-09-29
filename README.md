@@ -20,11 +20,16 @@ turnback list
 turnback diff <turn-id>
 turnback undo --dry-run
 turnback undo --yes
+turnback steps <turn-id>
+turnback restore <turn-id> --before-step 3 --dry-run
+turnback log src/app.ts
+turnback mark "before migration"
+turnback ui
 ```
 
 `install all` without `--project` installs the user-level config. `uninstall all [--project]` removes only Turnback entries. `--no-mcp` installs hooks without MCP. Other config is kept.
 
-Available commands: `install`, `uninstall`, `list`, `diff`, `status`, `restore`, `undo`, `redo`, `gc`, and `mcp`. `restore <turn> --path <file> --dry-run` shows the plan. `--yes` applies it. `redo --yes` returns to the safety snapshot taken before the last restore. Restoring changes project files; the agent's conversation context is not restored. `list` shows each turn's prompt, agent, and changed files; `list --json` prints the raw data. Set `{"prompts": false}` in `~/.turnback/config.json` to stop recording prompts.
+Available commands: `install`, `uninstall`, `list`, `steps`, `log`, `diff`, `status`, `restore`, `undo`, `redo`, `mark`, `marks`, `ui`, `gc`, and `mcp`. `steps <turn>` lists each edit and shell command of a turn; `restore <turn> --before-step N` returns to just before step N and keeps the earlier steps. `log <file|folder>` lists the turns that changed it. `mark <label>` saves the whole workspace as a checkpoint that `restore <label>` returns to. `ui` opens a read-only timeline of turns, steps, and diffs in the browser. `restore <turn> --path <file> --dry-run` shows the plan. `--yes` applies it. `redo --yes` returns to the safety snapshot taken before the last restore. Restoring changes project files; the agent's conversation context is not restored. `list` shows each turn's prompt, agent, and changed files; `list --json` prints the raw data. Set `{"prompts": false}` in `~/.turnback/config.json` to stop recording prompts.
 
 Documentation: [installation](guide/INSTALL.md), [restore](guide/RESTORE.md), [MCP](guide/MCP.md), and [scope](guide/LIMITS.md).
 
