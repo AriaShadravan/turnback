@@ -1,6 +1,6 @@
 # Restore
 
-`turnback list` shows turn IDs. `turnback diff <id>` shows the changes from the baseline to the turn's last snapshot. Preview with `turnback restore <id> --dry-run`; select files with a repeated `--path src/file.ts`. Apply with `--yes`. `turnback undo --yes` picks the most recent turn not yet undone. `turnback redo --yes` uses the safety snapshot taken before the last restore.
+`turnback list` shows turn IDs. `turnback diff <id>` shows the changes from the baseline to the turn's last snapshot. Preview with `turnback restore <id> --dry-run`; select files with a repeated `--path src/file.ts`. Apply with `--yes`. `turnback undo --yes` picks the most recent turn not yet undone. `turnback redo --yes` uses the safety snapshot taken before the last restore. A new agent turn starts a new history: the next undo targets that turn, and earlier undos can no longer be redone.
 
 In `edits-only` mode (`scope: recorded-paths` in the preview), restore touches only paths recorded by edit hooks since the target point; other files are left alone.
 

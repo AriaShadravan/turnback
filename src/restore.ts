@@ -169,24 +169,28 @@ export function applyRestore(store: Store, target: string, options: RestoreOptio
   });
 }
 
+/** The baseline of a new agent turn starts a new undo history, like a new edit in an editor. */
+const isNewTurn = (e: Entry) => e.agent !== 'turnback' && e.kind === 'baseline';
+
 /** Next turn for `undo`: each consecutive undo steps back one more turn. */
 export function undoTarget(store: Store): string | undefined {
   let depth = 0;
   for (const e of store.entries()) {
     if (e.status !== 'ok') continue;
-    if (e.kind === 'restore') depth = 0;
+    if (e.kind === 'restore' || isNewTurn(e)) depth = 0;
     else if (e.kind === 'undo') depth++;
     else if (e.kind === 'redo') depth = Math.max(0, depth - 1);
   }
   return store.turns()[depth]?.id;
 }
 
-/** Safety snapshot of the last restore/undo that has not been redone. */
+/** Safety snapshot of the last restore/undo that has not been redone since the last agent turn. */
 export function redoTarget(store: Store): string | undefined {
   const stack: string[] = [];
   for (const e of store.entries()) {
     if (e.status !== 'ok') continue;
-    if ((e.kind === 'restore' || e.kind === 'undo') && e.ref) stack.push(e.ref);
+    if (isNewTurn(e)) stack.length = 0;
+    else if ((e.kind === 'restore' || e.kind === 'undo') && e.ref) stack.push(e.ref);
     else if (e.kind === 'redo') stack.pop();
   }
   return stack.at(-1);

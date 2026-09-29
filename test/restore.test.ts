@@ -83,6 +83,30 @@ describe('snapshot and restore', () => {
     expect(undoTarget(s)).toBe('codex:s:t2');
   });
 
+  it('a new agent turn after an undo becomes the next undo target and clears redo', () => {
+    p.write('a.txt', 'zero');
+    hook(p.root, 'edit', 't1', { paths: [p.file('a.txt')] });
+    p.write('a.txt', 'one');
+    hook(p.root, 'turn-end', 't1');
+    hook(p.root, 'edit', 't2', { paths: [p.file('a.txt')] });
+    p.write('a.txt', 'two');
+    hook(p.root, 'turn-end', 't2');
+
+    const s = new Store(p.root);
+    applyRestore(s, undoTarget(s)!, { operation: 'undo' });
+    expect(p.read('a.txt')).toBe('one');
+
+    hook(p.root, 'edit', 't3', { paths: [p.file('a.txt')] });
+    p.write('a.txt', 'three');
+    hook(p.root, 'turn-end', 't3');
+
+    expect(undoTarget(s)).toBe('codex:s:t3');
+    // Redo would bring back the undone state on top of the new turn's work.
+    expect(redoTarget(s)).toBeUndefined();
+    applyRestore(s, undoTarget(s)!, { operation: 'undo' });
+    expect(p.read('a.txt')).toBe('one');
+  });
+
   it('restores only the selected paths', () => {
     p.write('a.txt', 'a0');
     p.write('b.txt', 'b0');
