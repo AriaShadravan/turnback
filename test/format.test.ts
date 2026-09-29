@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { formatTurns } from '../src/format.js';
+import { formatSteps, formatTurns } from '../src/format.js';
 import type { TurnSummary } from '../src/store.js';
 
 const turn = (extra: Partial<TurnSummary>): TurnSummary => ({
@@ -24,4 +24,14 @@ it('marks partial turns and turns without a prompt', () => {
 
 it('says so when nothing is recorded', () => {
   expect(formatTurns([])).toBe('No turns recorded yet.');
+});
+
+it('formats steps with their command, paths, and missing snapshots', () => {
+  const text = formatSteps([
+    { n: 1, kind: 'edit', time: '2026-09-29T07:03:00.000Z', paths: ['src/a.ts', 'src/b.ts'], ref: 'r1', status: 'ok' },
+    { n: 2, kind: 'shell', time: '2026-09-29T07:03:05.000Z', command: 'rm -rf src', status: 'unprotected' },
+  ]);
+  expect(text).toMatch(/^1\. .*edit .*src\/a\.ts, src\/b\.ts/m);
+  expect(text).toMatch(/^2\. .*shell .*rm -rf src .*no snapshot: unprotected/m);
+  expect(formatSteps([])).toBe('No edit or shell steps in this turn.');
 });

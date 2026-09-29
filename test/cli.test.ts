@@ -131,3 +131,24 @@ it('prints usage and exits 2 for an unknown command', () => {
   expect(r.status).toBe(2);
   expect(r.stdout).toMatch(/Usage:/);
 });
+
+it('lists steps and restores to just before one', () => {
+  const p = tempProject('turnback-steps-cli-');
+  p.write('a.txt', 'v0');
+  const send = (payload: object) => cli(p.root, p.home, ['hook', 'codex'], JSON.stringify({ session_id: 's', turn_id: 't', cwd: p.root, ...payload }));
+  send({ hook_event_name: 'UserPromptSubmit', prompt: 'two steps' });
+  send({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'echo v1 > a.txt' } });
+  p.write('a.txt', 'v1');
+  send({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'echo v2 > a.txt' } });
+  p.write('a.txt', 'v2');
+  send({ hook_event_name: 'Stop' });
+
+  const steps = cli(p.root, p.home, ['steps', 't']);
+  expect(steps.stdout).toMatch(/^1\. .*echo v1 > a\.txt/m);
+  expect(steps.stdout).toMatch(/^2\. .*echo v2 > a\.txt/m);
+  expect(cli(p.root, p.home, ['restore', 't', '--before-step', '2', '--yes']).status).toBe(0);
+  expect(p.read('a.txt')).toBe('v1');
+  const bad = cli(p.root, p.home, ['restore', 't', '--before-step', '9', '--yes']);
+  expect(bad.status).toBe(2);
+  expect(bad.stderr).toContain('has 2 steps');
+}, 30_000);

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hookResponse, parseHook } from './adapters.js';
 import { dataHome } from './config.js';
-import { formatTurns } from './format.js';
+import { formatSteps, formatTurns } from './format.js';
 import { install, uninstall } from './install.js';
 import { record } from './recorder.js';
 import { applyRestore, planRestore, redoTarget, undoTarget, type Operation } from './restore.js';
@@ -15,8 +15,9 @@ import type { Agent, HookEvent } from './types.js';
 const USAGE = `Usage:
   turnback install|uninstall <claude|codex|gemini|cursor|opencode|antigravity|all> [--project] [--no-mcp]
   turnback list [--json] | status | gc
+  turnback steps <turn> [--json]
   turnback diff <turn>
-  turnback restore <turn|snapshot> [--path <p>...] [--dry-run | --yes]
+  turnback restore <turn|snapshot> [--before-step <n>] [--path <p>...] [--dry-run | --yes]
   turnback undo | redo [--dry-run | --yes]
   turnback mcp`;
 
@@ -26,12 +27,17 @@ interface Args {
   positional: string[];
   flags: Set<string>;
   paths: string[];
+  values: Map<string, string>;
 }
 
+/** Flags that take a value. */
+const VALUE_FLAGS = new Set(['--before-step', '--port']);
+
 function parseArgs(argv: string[]): Args {
-  const args: Args = { positional: [], flags: new Set(), paths: [] };
+  const args: Args = { positional: [], flags: new Set(), paths: [], values: new Map() };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--path' && argv[i + 1]) args.paths.push(argv[++i]);
+    else if (VALUE_FLAGS.has(argv[i]) && argv[i + 1] !== undefined) args.values.set(argv[i], argv[++i]);
     else if (argv[i].startsWith('--')) args.flags.add(argv[i]);
     else args.positional.push(argv[i]);
   }
@@ -68,7 +74,11 @@ function needsWarm(event: HookEvent): boolean {
 }
 
 function runRestore(store: Store, operation: Operation, args: Args): void {
-  const target = operation === 'undo' ? undoTarget(store) : operation === 'redo' ? redoTarget(store) : args.positional[0];
+  const step = args.values.get('--before-step');
+  const target = operation === 'undo' ? undoTarget(store)
+    : operation === 'redo' ? redoTarget(store)
+    : step !== undefined && args.positional[0] ? store.stepRef(args.positional[0], Number(step))
+    : args.positional[0];
   if (!target) throw new Error(operation === 'restore' ? 'Missing target turn or snapshot' : `Nothing to ${operation}`);
   const paths = args.paths.length ? args.paths : undefined;
   const plan = planRestore(store, target, paths);
@@ -115,6 +125,13 @@ async function main(): Promise<void> {
     case 'gc':
       output(store.gc());
       return;
+    case 'steps': {
+      const id = args.positional[0];
+      if (!id) throw new Error('Missing turn id');
+      const steps = store.steps(id);
+      output(args.flags.has('--json') ? steps : formatSteps(steps));
+      return;
+    }
     case 'diff': {
       const id = args.positional[0];
       if (!id) throw new Error('Missing turn id');

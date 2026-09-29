@@ -2,7 +2,7 @@ import { CLIENT_CAPABILITIES_META_KEY, inputRequired, inputResponse, McpServer }
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import * as z from 'zod/v4';
 import { VERSION } from './config.js';
-import { formatTurns } from './format.js';
+import { formatSteps, formatTurns } from './format.js';
 import { applyRestore, planRestore, redoTarget } from './restore.js';
 import { Store } from './store.js';
 
@@ -53,6 +53,17 @@ export function createServer(): McpServer {
     } catch (e) { return failure(e); }
   });
 
+  server.registerTool('turn_steps', {
+    description: 'List the edit and shell steps of a turn. Pass a step ref as restore target to return to just before that step.',
+    inputSchema: z.object({ turn: z.string(), workspace: workspaceParam }),
+    annotations: { readOnlyHint: true },
+  }, async ({ turn, workspace }) => {
+    try {
+      const steps = storeFor(workspace).steps(turn);
+      return result({ turn, steps }, formatSteps(steps));
+    } catch (e) { return failure(e); }
+  });
+
   server.registerTool('status', {
     description: 'Show Turnback storage and protection status',
     inputSchema: z.object({ workspace: workspaceParam }),
@@ -65,7 +76,7 @@ export function createServer(): McpServer {
     } catch (e) { return failure(e); }
   });
 
-  registerRestoreTool(server, 'restore', 'Preview or restore workspace files to a turn baseline. Call once for a plan, then again with confirm_token as token.');
+  registerRestoreTool(server, 'restore', 'Preview or restore workspace files to a turn baseline or a snapshot ref (for example a step ref from turn_steps). Call once for a plan, then again with confirm_token as token.');
   registerRestoreTool(server, 'redo', 'Preview or undo the last restore. Call once for a plan, then again with confirm_token as token.');
   return server;
 }
