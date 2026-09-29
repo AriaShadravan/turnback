@@ -1,5 +1,5 @@
 import type { TurnSummary } from './store.js';
-import type { Step } from './types.js';
+import type { Mark, Step } from './types.js';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -28,4 +28,10 @@ export function formatSteps(steps: Step[]): string {
     const missing = s.ref ? '' : `  (no snapshot: ${s.status})`;
     return `${s.n}. ${localTime(s.time).slice(11)}  ${s.kind.padEnd(5)}  ${detail}${missing}`;
   }).join('\n');
+}
+
+/** Marks, newest first: number, local time, label, then ref. */
+export function formatMarks(marks: Mark[]): string {
+  if (!marks.length) return 'No marks yet. Create one with `turnback mark <label>`.';
+  return marks.map((m, i) => `#${i + 1} ${localTime(m.time)}  ${JSON.stringify(m.label)}\n   ${m.ref}`).join('\n');
 }

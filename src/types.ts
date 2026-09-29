@@ -27,7 +27,8 @@ export type EntryKind =
   | 'restore'
   | 'undo'
   | 'redo'
-  | 'gc';
+  | 'gc'
+  | 'mark';
 
 export type EntryStatus = 'ok' | 'skipped' | 'failed' | 'unprotected';
 
@@ -51,6 +52,13 @@ export type NewEntry = Omit<Entry, 'id' | 'time'>;
 
 /** Owner identity of a journal entry, plus the recorded event details. */
 export type EntryOrigin = Pick<Entry, 'agent' | 'session' | 'turn'> & Partial<Pick<Entry, 'paths' | 'command'>>;
+
+/** A user checkpoint: a full snapshot under a label. */
+export interface Mark {
+  label: string;
+  time: string;
+  ref: string;
+}
 
 /** One mutating tool call inside a turn. */
 export interface Step {

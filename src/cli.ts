@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hookResponse, parseHook } from './adapters.js';
 import { dataHome } from './config.js';
-import { formatSteps, formatTurns } from './format.js';
+import { formatMarks, formatSteps, formatTurns } from './format.js';
 import { install, uninstall } from './install.js';
 import { record } from './recorder.js';
 import { applyRestore, planRestore, redoTarget, undoTarget, type Operation } from './restore.js';
@@ -18,7 +18,8 @@ const USAGE = `Usage:
   turnback steps <turn> [--json]
   turnback log <file|folder> [--json]
   turnback diff <turn>
-  turnback restore <turn|snapshot> [--before-step <n>] [--path <p>...] [--dry-run | --yes]
+  turnback mark <label> | marks [--json]
+  turnback restore <turn|mark|snapshot> [--before-step <n>] [--path <p>...] [--dry-run | --yes]
   turnback undo | redo [--dry-run | --yes]
   turnback mcp`;
 
@@ -138,6 +139,16 @@ async function main(): Promise<void> {
       if (!target) throw new Error('Missing file or folder');
       const history = store.fileHistory(path.resolve(target));
       output(args.flags.has('--json') ? history : history.length ? formatTurns(history) : `No recorded turn changed ${target}.`);
+      return;
+    }
+    case 'mark': {
+      const mark = store.mark(args.positional.join(' '));
+      output(`Marked ${JSON.stringify(mark.label)} (${mark.ref}). Restore it with: turnback restore ${JSON.stringify(mark.label)} --dry-run`);
+      return;
+    }
+    case 'marks': {
+      const marks = store.marks();
+      output(args.flags.has('--json') ? marks : formatMarks(marks));
       return;
     }
     case 'diff': {

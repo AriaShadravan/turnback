@@ -7,7 +7,7 @@ import {
 import { Journal, turnKey } from './journal.js';
 import { LockTimeoutError, waitForUnlock, withLock } from './lock.js';
 import { ShadowRepo } from './shadow.js';
-import type { Entry, EntryKind, EntryOrigin, Mode, NewEntry, Step, Turn } from './types.js';
+import type { Entry, EntryKind, EntryOrigin, Mark, Mode, NewEntry, Step, Turn } from './types.js';
 import { Workspace, type Scan } from './workspace.js';
 
 const WARM_ORIGIN: EntryOrigin = { agent: 'turnback', session: 'warm', turn: 'warm' };
@@ -268,6 +268,24 @@ export class Store {
     if (!turn?.end) throw new Error(`Unknown or incomplete turn: ${id}`);
     const diff = patch ? this.repo.diffPatch(turn.baseline, turn.end) : this.repo.diffStat(turn.baseline, turn.end);
     return { turn: turn.id, diff };
+  }
+
+  /** Snapshot the whole workspace under a label. Marks belong to Turnback, so gc never removes them. */
+  mark(label: string): Mark {
+    const name = label.trim();
+    if (!name) throw new Error('A mark needs a label');
+    if (this.mode() === 'edits-only') throw new Error('Marks are unavailable in edits-only mode: only edited paths are snapshotted');
+    const entry = this.snapshot('mark', { agent: 'turnback', session: 'mark', turn: name });
+    if (entry.status !== 'ok' || !entry.ref) throw new Error(`Mark failed: ${entry.note ?? entry.status}`);
+    return { label: name, time: entry.time, ref: entry.ref };
+  }
+
+  /** Marks, newest first. */
+  marks(): Mark[] {
+    return this.entries()
+      .filter(e => e.kind === 'mark' && e.status === 'ok' && e.ref)
+      .map(e => ({ label: e.turn, time: e.time, ref: e.ref! }))
+      .reverse();
   }
 
   /** Edit and shell steps of a turn, in order. Each ref is the snapshot taken just before that step ran. */

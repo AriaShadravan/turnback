@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { formatSteps, formatTurns } from '../src/format.js';
+import { formatMarks, formatSteps, formatTurns } from '../src/format.js';
 import type { TurnSummary } from '../src/store.js';
 
 const turn = (extra: Partial<TurnSummary>): TurnSummary => ({
@@ -34,4 +34,11 @@ it('formats steps with their command, paths, and missing snapshots', () => {
   expect(text).toMatch(/^1\. .*edit .*src\/a\.ts, src\/b\.ts/m);
   expect(text).toMatch(/^2\. .*shell .*rm -rf src .*no snapshot: unprotected/m);
   expect(formatSteps([])).toBe('No edit or shell steps in this turn.');
+});
+
+it('formats marks with their label and ref', () => {
+  const text = formatMarks([{ label: 'before migration', time: '2026-09-29T07:03:00.000Z', ref: 'refs/turnback/s/abc' }]);
+  expect(text).toMatch(/^#1 .*"before migration"/);
+  expect(text).toContain('refs/turnback/s/abc');
+  expect(formatMarks([])).toBe('No marks yet. Create one with `turnback mark <label>`.');
 });

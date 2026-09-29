@@ -196,13 +196,15 @@ export function redoTarget(store: Store): string | undefined {
   return stack.at(-1);
 }
 
-/** Target is a turn ID (restored to its baseline) or a snapshot ref. */
+/** Target is a turn ID (restored to its baseline), a mark label, or a snapshot ref, in that order. */
 function resolveTarget(store: Store, entries: Entry[], target: string): { ref: string; since: number } {
   const turn = store.findTurn(target);
   if (turn) {
     const baseline = turn.entries.find(e => e.kind === 'baseline' && e.ref)!;
     return { ref: turn.baseline, since: entries.findIndex(e => e.id === baseline.id) };
   }
+  const mark = store.marks().find(m => m.label === target);
+  if (mark) return { ref: mark.ref, since: entries.findIndex(e => e.ref === mark.ref) };
   const since = entries.findIndex(e => e.ref === target);
   if (since >= 0 && store.repo.refExists(target)) return { ref: target, since };
   throw new Error(`Unknown turn or snapshot: ${target}`);
