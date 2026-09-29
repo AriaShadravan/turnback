@@ -38,11 +38,13 @@ export function parseHook(agent: Agent, p: Payload, fallbackCwd = process.cwd(),
   const input: Payload = rawInput && typeof rawInput === 'object' ? rawInput : {};
   const command = String(input.command || input.CommandLine || p.command || '');
   const paths = [...new Set(toolPaths(tool, input, command).map(f => path.resolve(cwd, f)))];
+  const prompt = kind === 'turn-start' && typeof p.prompt === 'string' ? p.prompt : undefined;
 
   return {
     agent, session, turn, cwd, kind,
     paths: paths.length ? paths : undefined,
     command: kind === 'shell' ? command : undefined,
+    prompt,
   };
 }
 

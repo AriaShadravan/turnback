@@ -13,6 +13,8 @@ export interface HookEvent {
   paths?: string[];
   /** Shell command, only recorded in the journal. */
   command?: string;
+  /** User prompt, only on turn-start events. */
+  prompt?: string;
 }
 
 export type EntryKind =
@@ -39,6 +41,8 @@ export interface Entry {
   ref?: string;
   paths?: string[];
   command?: string;
+  /** One-line prompt label, only on turn-start entries. */
+  prompt?: string;
   status: EntryStatus;
   note?: string;
 }

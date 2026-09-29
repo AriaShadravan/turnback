@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
@@ -26,6 +26,27 @@ export const EXCLUDED_DIRS = new Set([
 ]);
 
 export const dataHome = () => process.env.TURNBACK_HOME || path.join(homedir(), '.turnback');
+
+export interface UserConfig {
+  exclude?: string[];
+  /** `false` stops recording prompt labels. */
+  prompts?: boolean;
+}
+
+/** `~/.turnback/config.json`; a missing or unreadable file means defaults. */
+export function userConfig(): UserConfig {
+  try { return JSON.parse(readFileSync(path.join(dataHome(), 'config.json'), 'utf8')); } catch { return {}; }
+}
+
+export const PROMPT_CHARS = 200;
+
+/** Prompt as a one-line label of at most PROMPT_CHARS characters, or undefined when disabled or empty. */
+export function promptLabel(prompt: string | undefined): string | undefined {
+  if (!prompt || userConfig().prompts === false) return undefined;
+  const line = prompt.replace(/\s+/g, ' ').trim();
+  if (!line) return undefined;
+  return line.length > PROMPT_CHARS ? line.slice(0, PROMPT_CHARS - 1) + '…' : line;
+}
 
 export const sha256 = (data: string | Buffer) => createHash('sha256').update(data).digest('hex');
 

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { lstatSync, readdirSync, readFileSync, readlinkSync, type Stats } from 'node:fs';
 import path from 'node:path';
 import ignore, { type Ignore } from 'ignore';
-import { canonicalPath, dataHome, EXCLUDED_DIRS, MAX_FILE_BYTES } from './config.js';
+import { canonicalPath, EXCLUDED_DIRS, MAX_FILE_BYTES, userConfig } from './config.js';
 
 export interface Scan {
   /** Files in snapshot scope (relative paths, `/` separator). */
@@ -24,10 +24,7 @@ export class Workspace {
 
   constructor(readonly root: string) {
     try { this.matcher.add(readFileSync(path.join(root, '.turnbackignore'), 'utf8')); } catch { /* optional */ }
-    try {
-      const config = JSON.parse(readFileSync(path.join(dataHome(), 'config.json'), 'utf8'));
-      this.matcher.add((config.exclude ?? []) as string[]);
-    } catch { /* optional */ }
+    this.matcher.add(userConfig().exclude ?? []);
   }
 
   abs(rel: string): string {

@@ -20,6 +20,7 @@ export interface TurnSummary {
   status: Turn['status'];
   baseline: string;
   end?: string;
+  prompt?: string;
   changedFiles: number;
 }
 
@@ -246,7 +247,8 @@ export class Store {
 
   summarize(turn: Turn): TurnSummary {
     const { entries, ...rest } = turn;
-    return { ...rest, changedFiles: turn.end ? this.repo.diffNames(turn.baseline, turn.end).length : 0 };
+    const prompt = entries.find(e => e.kind === 'turn-start')?.prompt;
+    return { ...rest, prompt, changedFiles: turn.end ? this.repo.diffNames(turn.baseline, turn.end).length : 0 };
   }
 
   turnDiff(id: string, patch: boolean): { turn: string; diff: string } {

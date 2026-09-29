@@ -64,3 +64,12 @@ it('answers Cursor permission hooks explicitly', () => {
   expect(hookResponse('claude', 'PreToolUse')).toBe('{}');
   expect(hookResponse('antigravity', 'PreToolUse')).toBe('');
 });
+
+it('passes the prompt of turn-start events only', () => {
+  const start = parseHook('claude', { hook_event_name: 'UserPromptSubmit', session_id: 'p', prompt: 'fix the login bug', cwd: root });
+  expect(start?.prompt).toBe('fix the login bug');
+  const cursor = parseHook('cursor', { hook_event_name: 'beforeSubmitPrompt', conversation_id: 'p', generation_id: 'g', prompt: 'add tests', cwd: root });
+  expect(cursor?.prompt).toBe('add tests');
+  const tool = parseHook('claude', { hook_event_name: 'PreToolUse', session_id: 'p', tool_name: 'Bash', prompt: 'x', tool_input: { command: 'ls' }, cwd: root });
+  expect(tool?.prompt).toBeUndefined();
+});

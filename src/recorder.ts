@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { isInside, WARM_WAIT_MS, workspaceRoot, workspaceRootForFile } from './config.js';
+import { isInside, promptLabel, WARM_WAIT_MS, workspaceRoot, workspaceRootForFile } from './config.js';
 import { turnKey } from './journal.js';
 import { originFields, Store } from './store.js';
 import type { Entry, HookEvent } from './types.js';
@@ -47,8 +47,9 @@ function recordIn(store: Store, event: HookEvent): Entry | undefined {
 
   switch (event.kind) {
     case 'session-start':
-    case 'turn-start':
       return store.log({ ...origin, kind: event.kind, status: 'ok' });
+    case 'turn-start':
+      return store.log({ ...origin, kind: event.kind, status: 'ok', prompt: promptLabel(event.prompt) });
     case 'turn-end':
       return endTurn(store, event, turn);
     default:
