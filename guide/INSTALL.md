@@ -1,5 +1,7 @@
 # Installation
 
+In Claude Code, the plugin is the simplest install: `claude plugin marketplace add MFaizR77/turnback`, then `claude plugin install turnback@turnback`. It brings the hooks, the MCP server, and the `/turnback:undo`, `/turnback:turns`, and `/turnback:diff-turn` commands. While the plugin is enabled, `turnback install claude` skips Claude Code so hooks do not run twice; run `turnback uninstall claude` if you installed hooks manually before.
+
 Run `npm ci && npm run build`, then `node dist/cli.js install all` for the user config, or add `--project` for the current repo. Pick one of `claude`, `codex`, `gemini`, `cursor`, `opencode`, `antigravity` for a single agent. Run `uninstall` at the same level to remove Turnback entries. Installing again does not duplicate hooks.
 
 Hooks call `node <absolute path>/dist/cli.js hook <agent>` and the MCP server calls `node <absolute path>/dist/cli.js mcp`. Keep the build output where it is after installing. After changing the code, run `npm run build` again. Restart the agent so it reads the config. Codex runs project hooks only in a trusted project, and skips every new or changed hook until you trust it in `/hooks`; `codex exec` can bypass that for one run with `--dangerously-bypass-hook-trust`. Codex starts MCP servers with a minimal environment, so the installer forwards `TURNBACK_HOME` through `env_vars`.

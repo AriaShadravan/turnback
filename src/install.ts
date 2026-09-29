@@ -74,6 +74,14 @@ export function install(which: string, project: boolean, root: string, cli: stri
   const touched: string[] = [];
   for (const agent of selectAgents(which)) {
     const base = project ? root : homedir();
+    if (agent === 'claude') {
+      const userDir = process.env.CLAUDE_CONFIG_DIR || path.join(homedir(), '.claude');
+      const settings = [path.join(base, '.claude', 'settings.json'), path.join(userDir, 'settings.json')];
+      if (claudePluginEnabled(settings)) {
+        touched.push('skipped claude: the Turnback plugin is enabled and already records turns');
+        continue;
+      }
+    }
     if (agent === 'opencode') {
       touched.push(...installOpencode(base, project, cli, withMcp));
       continue;
@@ -102,6 +110,18 @@ export function install(which: string, project: boolean, root: string, cli: stri
     }
   }
   return touched;
+}
+
+/** True if a Claude Code settings file enables a `turnback@<marketplace>` plugin, whose hooks already record turns. */
+export function claudePluginEnabled(settingsFiles: string[]): boolean {
+  return settingsFiles.some(file => {
+    try {
+      const enabled = JSON.parse(readFileSync(file, 'utf8')).enabledPlugins ?? {};
+      return Object.entries(enabled).some(([id, on]) => id.startsWith('turnback@') && on === true);
+    } catch {
+      return false;
+    }
+  });
 }
 
 /** Remove only entries owned by Turnback. */

@@ -17,7 +17,13 @@ const failure = (e: unknown) => ({
   content: [{ type: 'text' as const, text: e instanceof Error ? e.message : String(e) }],
   isError: true,
 });
-const storeFor = (workspace?: string) => new Store(workspace || process.cwd());
+/** Explicit workspace, then TURNBACK_WORKSPACE (set by the Claude Code plugin), then the server's cwd. */
+function storeFor(workspace?: string) {
+  const fromEnv = process.env.TURNBACK_WORKSPACE;
+  // An unexpanded `${...}` means the client did not substitute the variable.
+  const envRoot = fromEnv && !fromEnv.includes('${') ? fromEnv : undefined;
+  return new Store(workspace || envRoot || process.cwd());
+}
 
 const workspaceParam = z.string().optional().describe('Workspace folder; defaults to the server working directory');
 

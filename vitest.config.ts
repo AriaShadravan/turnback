@@ -10,6 +10,8 @@ export default defineConfig({
     env: {
       GIT_CONFIG_GLOBAL: path.join(tmpdir(), 'turnback-no-gitconfig'),
       GIT_CONFIG_NOSYSTEM: '1',
+      // Never read the developer's own Claude Code settings (an installed Turnback plugin changes install()).
+      CLAUDE_CONFIG_DIR: path.join(tmpdir(), 'turnback-no-claude-config'),
     },
   },
 });

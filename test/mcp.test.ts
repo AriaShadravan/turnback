@@ -97,3 +97,22 @@ it('asks a modern client to approve overwriting manual edits', async () => {
     await client.close();
   }
 }, 15_000);
+
+it('uses TURNBACK_WORKSPACE when no workspace is given, ignoring unexpanded values', async () => {
+  const run = async (value: string) => {
+    const transport = new StdioClientTransport({
+      command: process.execPath, args: [CLI, 'mcp'], cwd: p.home,
+      env: { ...process.env, TURNBACK_HOME: p.home, TURNBACK_WORKSPACE: value },
+    });
+    const client = new Client({ name: 'test', version: '1.0.0' });
+    await client.connect(transport);
+    try {
+      const result = await client.callTool({ name: 'list_turns', arguments: {} });
+      return (result.structuredContent as any).turns.length;
+    } finally {
+      await client.close();
+    }
+  };
+  expect(await run(p.root)).toBe(1);
+  expect(await run('${CLAUDE_PROJECT_DIR}')).toBe(0);
+}, 30_000);

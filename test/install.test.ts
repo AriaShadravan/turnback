@@ -92,3 +92,17 @@ it('prefers an existing opencode.jsonc', () => {
   expect(install('opencode', true, root, CLI_PATH)).toContain(path.join(root, 'opencode.jsonc'));
   expect(existsSync(path.join(root, 'opencode.json'))).toBe(false);
 });
+
+it('skips Claude Code hooks when the Turnback plugin is enabled', () => {
+  writeFileSync(hooksFile('claude'), JSON.stringify({ enabledPlugins: { 'turnback@turnback': true } }));
+  const touched = install('claude', true, root, CLI_PATH);
+  expect(touched).toEqual([expect.stringMatching(/^skipped claude: /)]);
+  expect(readConfig('claude').hooks).toBeUndefined();
+  expect(existsSync(path.join(root, '.mcp.json'))).toBe(false);
+});
+
+it('installs Claude Code hooks when the Turnback plugin is disabled', () => {
+  writeFileSync(hooksFile('claude'), JSON.stringify({ enabledPlugins: { 'turnback@turnback': false } }));
+  install('claude', true, root, CLI_PATH);
+  expect(JSON.stringify(readConfig('claude').hooks)).toContain('turnback:');
+});
