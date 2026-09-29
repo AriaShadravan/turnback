@@ -1,0 +1,34 @@
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
+import { expect, it } from 'vitest';
+import { Store } from '../src/store.js';
+import { hook, tempProject } from './helpers.js';
+
+function editTurn(p: ReturnType<typeof tempProject>, turn: string, rel: string, content: string) {
+  hook(p.root, 'turn-start', turn, { prompt: `change ${rel}` });
+  hook(p.root, 'edit', turn, { paths: [p.file(rel)] });
+  p.write(rel, content);
+  hook(p.root, 'turn-end', turn);
+}
+
+it('lists the turns that changed a file or folder, newest first', () => {
+  const p = tempProject('turnback-log-');
+  mkdirSync(p.file('src'));
+  p.write('src/a.txt', '0');
+  p.write('b.txt', '0');
+  editTurn(p, 't1', 'src/a.txt', '1');
+  editTurn(p, 't2', 'b.txt', '1');
+  editTurn(p, 't3', 'src/a.txt', '2');
+  const store = new Store(p.root);
+
+  const history = store.fileHistory(p.file('src/a.txt'));
+  expect(history.map(t => t.id.split(':').at(-1))).toEqual(['t3', 't1']);
+  expect(history[0].prompt).toBe('change src/a.txt');
+  expect(store.fileHistory(p.file('src')).map(t => t.id.split(':').at(-1))).toEqual(['t3', 't1']);
+  expect(store.fileHistory(p.file('missing.txt'))).toEqual([]);
+});
+
+it('rejects paths outside the workspace', () => {
+  const p = tempProject('turnback-log-out-');
+  expect(() => new Store(p.root).fileHistory(path.resolve(p.root, '..', 'elsewhere.txt'))).toThrow(/outside workspace/);
+});

@@ -16,6 +16,7 @@ const USAGE = `Usage:
   turnback install|uninstall <claude|codex|gemini|cursor|opencode|antigravity|all> [--project] [--no-mcp]
   turnback list [--json] | status | gc
   turnback steps <turn> [--json]
+  turnback log <file|folder> [--json]
   turnback diff <turn>
   turnback restore <turn|snapshot> [--before-step <n>] [--path <p>...] [--dry-run | --yes]
   turnback undo | redo [--dry-run | --yes]
@@ -130,6 +131,13 @@ async function main(): Promise<void> {
       if (!id) throw new Error('Missing turn id');
       const steps = store.steps(id);
       output(args.flags.has('--json') ? steps : formatSteps(steps));
+      return;
+    }
+    case 'log': {
+      const target = args.positional[0];
+      if (!target) throw new Error('Missing file or folder');
+      const history = store.fileHistory(path.resolve(target));
+      output(args.flags.has('--json') ? history : history.length ? formatTurns(history) : `No recorded turn changed ${target}.`);
       return;
     }
     case 'diff': {

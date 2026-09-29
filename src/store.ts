@@ -245,10 +245,22 @@ export class Store {
     return this.turns().find(t => t.id === id || t.id.endsWith(':' + id));
   }
 
-  summarize(turn: Turn): TurnSummary {
+  summarize(turn: Turn, names?: string[]): TurnSummary {
     const { entries, ...rest } = turn;
     const prompt = entries.find(e => e.kind === 'turn-start')?.prompt;
-    return { ...rest, prompt, changedFiles: turn.end ? this.repo.diffNames(turn.baseline, turn.end).length : 0 };
+    const changed = names ?? (turn.end ? this.repo.diffNames(turn.baseline, turn.end) : []);
+    return { ...rest, prompt, changedFiles: changed.length };
+  }
+
+  /** Turns whose changes include a file, or any file under a folder; newest first. */
+  fileHistory(absPath: string): TurnSummary[] {
+    const rel = this.workspace.relative(absPath);
+    if (!rel) throw new Error(`Path outside workspace: ${absPath}`);
+    return this.turns().flatMap(turn => {
+      if (!turn.end) return [];
+      const names = this.repo.diffNames(turn.baseline, turn.end);
+      return names.some(n => n === rel || n.startsWith(rel + '/')) ? [this.summarize(turn, names)] : [];
+    });
   }
 
   turnDiff(id: string, patch: boolean): { turn: string; diff: string } {
