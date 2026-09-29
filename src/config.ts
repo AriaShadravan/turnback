@@ -33,9 +33,16 @@ export interface UserConfig {
   prompts?: boolean;
 }
 
-/** `~/.turnback/config.json`; a missing or unreadable file means defaults. */
+/** `~/.turnback/config.json`; a missing, unreadable, or malformed file or field means defaults. */
 export function userConfig(): UserConfig {
-  try { return JSON.parse(readFileSync(path.join(dataHome(), 'config.json'), 'utf8')); } catch { return {}; }
+  let raw: unknown;
+  try { raw = JSON.parse(readFileSync(path.join(dataHome(), 'config.json'), 'utf8')); } catch { return {}; }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const { exclude, prompts } = raw as Record<string, unknown>;
+  return {
+    exclude: Array.isArray(exclude) ? exclude.filter((p): p is string => typeof p === 'string') : undefined,
+    prompts: typeof prompts === 'boolean' ? prompts : undefined,
+  };
 }
 
 export const PROMPT_CHARS = 200;

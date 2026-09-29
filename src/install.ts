@@ -76,7 +76,9 @@ export function install(which: string, project: boolean, root: string, cli: stri
     const base = project ? root : homedir();
     if (agent === 'claude') {
       const userDir = process.env.CLAUDE_CONFIG_DIR || path.join(homedir(), '.claude');
-      const settings = [path.join(base, '.claude', 'settings.json'), path.join(userDir, 'settings.json')];
+      // Plugins can be enabled at user, project, or local scope; any of them already records turns here.
+      const settings = [...new Set([base, root])].flatMap(dir => ['settings.json', 'settings.local.json'].map(f => path.join(dir, '.claude', f)));
+      settings.push(path.join(userDir, 'settings.json'));
       if (claudePluginEnabled(settings)) {
         touched.push('skipped claude: the Turnback plugin is enabled and already records turns');
         continue;

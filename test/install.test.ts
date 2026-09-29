@@ -106,3 +106,10 @@ it('installs Claude Code hooks when the Turnback plugin is disabled', () => {
   install('claude', true, root, CLI_PATH);
   expect(JSON.stringify(readConfig('claude').hooks)).toContain('turnback:');
 });
+
+it('skips Claude Code hooks when the plugin is enabled in local or project settings', () => {
+  writeFileSync(path.join(root, '.claude', 'settings.local.json'), JSON.stringify({ enabledPlugins: { 'turnback@turnback': true } }));
+  expect(install('claude', true, root, CLI_PATH)).toEqual([expect.stringMatching(/^skipped claude: /)]);
+  // A user-level install from this project also sees the project's plugin.
+  expect(install('claude', false, root, CLI_PATH)).toEqual([expect.stringMatching(/^skipped claude: /)]);
+});

@@ -50,3 +50,15 @@ it('keeps turns recorded before prompts existed readable', () => {
   hook(p.root, 'turn-end', 't');
   expect(summary(p.root).prompt).toBeUndefined();
 });
+
+it('keeps recording when config.json is not an object', () => {
+  for (const content of ['null', '42', '"text"', '{"exclude": 5}']) {
+    const p = tempProject('turnback-bad-config-');
+    writeFileSync(path.join(p.home, 'config.json'), content);
+    p.write('a.txt', 'old');
+    hook(p.root, 'turn-start', 't', { prompt: 'fix' });
+    hook(p.root, 'edit', 't', { paths: [p.file('a.txt')] });
+    hook(p.root, 'turn-end', 't');
+    expect(summary(p.root).prompt, content).toBe('fix');
+  }
+});
