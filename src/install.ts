@@ -65,6 +65,9 @@ const SPECS: Record<Exclude<Agent, 'opencode'>, AgentSpec> = {
   },
 };
 
+/** Hook event → tool matcher for one agent; the Claude Code plugin's hooks/hooks.json must match it. */
+export const hookEvents = (agent: Exclude<Agent, 'opencode'>) => SPECS[agent].events;
+
 /** Install hooks and the MCP server. Other config is kept; calling again does not duplicate entries. */
 export function install(which: string, project: boolean, root: string, cli: string, withMcp = true): string[] {
   requireGit();

@@ -34,7 +34,10 @@
   },
   "files": [
     "dist/**/*.js",
-    "guide"
+    "guide",
+    ".claude-plugin/plugin.json",
+    "hooks",
+    "skills"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit && node scripts/bundle.mjs",
