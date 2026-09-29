@@ -1,11 +1,15 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { expect, it } from 'vitest';
+import { install } from '../src/install.js';
 import { Store } from '../src/store.js';
 import { CLI, tempProject } from './helpers.js';
 
-const AGENTS = ['claude', 'codex', 'gemini', 'cursor'];
+const AGENTS = ['claude', 'codex', 'gemini', 'cursor', 'opencode', 'antigravity'];
+/** Antigravity payloads do not name their event; the installed hook passes it as an argument. */
+const EVENT_ARG: Record<string, string[]> = { antigravity: ['PreToolUse'] };
 
 function cli(root: string, home: string, args: string[], input?: string) {
   return spawnSync(process.execPath, [CLI, ...args], { cwd: root, input, encoding: 'utf8', env: { ...process.env, TURNBACK_HOME: home } });
@@ -18,9 +22,11 @@ it('every agent hook fails open when storage cannot be created', () => {
   writeFileSync(blockedHome, 'not a directory');
   for (const agent of AGENTS) {
     const payload = readFileSync(path.resolve(`test/fixtures/${agent}.json`), 'utf8');
-    const r = cli(p.root, blockedHome, ['hook', agent], payload);
+    const r = cli(p.root, blockedHome, ['hook', agent, ...EVENT_ARG[agent] ?? []], payload);
     expect(r.status).toBe(0);
-    expect(JSON.parse(r.stdout)).toEqual(agent === 'cursor' ? { permission: 'allow' } : {});
+    // Antigravity treats any PreToolUse output, even `{}`, as a decision; only silence is neutral.
+    if (agent === 'antigravity') expect(r.stdout).toBe('');
+    else expect(JSON.parse(r.stdout)).toEqual(agent === 'cursor' ? { permission: 'allow' } : {});
   }
 });
 
@@ -75,6 +81,48 @@ it('undoes a destructive shell turn end to end through the CLI', () => {
   expect(cli(p.root, p.home, ['redo', '--yes']).status).toBe(0);
   expect(existsSync(p.file('src/app.ts'))).toBe(false);
   expect(p.read('junk.txt')).toBe('junk');
+}, 30_000);
+
+it('undoes an Antigravity turn recorded from event-name arguments', () => {
+  const p = tempProject('turnback-agy-');
+  p.write('a.txt', 'hello\n');
+  const base = { conversationId: 'c', workspacePaths: [p.root.replaceAll('\\', '/')] };
+  const send = (event: string, payload: object = {}) => cli(p.root, p.home, ['hook', 'antigravity', event], JSON.stringify({ ...base, ...payload }));
+
+  expect(send('PreInvocation', { invocationNum: 0 }).stdout).toBe('');
+  send('PreToolUse', { toolCall: { name: 'write_to_file', args: { TargetFile: p.file('a.txt'), CodeContent: 'hello world' } } });
+  p.write('a.txt', 'hello world');
+  send('PostInvocation', { invocationNum: 0 });
+  send('PreInvocation', { invocationNum: 1 });
+  send('PreToolUse', { toolCall: { name: 'run_command', args: { CommandLine: 'rm a.txt', Cwd: p.root } } });
+  rmSync(p.file('a.txt'));
+  send('Stop', { terminationReason: 'NO_TOOL_CALL', fullyIdle: true });
+
+  const list = JSON.parse(cli(p.root, p.home, ['list']).stdout);
+  expect(list).toHaveLength(1);
+  expect(list[0].agent).toBe('antigravity');
+  expect(cli(p.root, p.home, ['undo', '--yes']).status).toBe(0);
+  expect(p.read('a.txt')).toBe('hello\n');
+}, 30_000);
+
+it('undoes an OpenCode turn through the generated plugin', async () => {
+  const p = tempProject('turnback-opencode-');
+  p.write('a.txt', 'hello\n');
+  install('opencode', true, p.root, CLI, false);
+  const { Turnback } = await import(pathToFileURL(p.file('.opencode/plugins/turnback.js')).href);
+  const hooks = await Turnback({ directory: p.root });
+
+  await hooks['chat.message']({ sessionID: 'ses_1' }, {});
+  await hooks['tool.execute.before']({ tool: 'edit', sessionID: 'ses_1', callID: 'c1' }, { args: { filePath: p.file('a.txt') } });
+  p.write('a.txt', 'hello world');
+  await hooks['tool.execute.before']({ tool: 'bash', sessionID: 'ses_1', callID: 'c2' }, { args: { command: 'rm a.txt' } });
+  rmSync(p.file('a.txt'));
+  await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 'ses_1' } } });
+
+  const list = JSON.parse(cli(p.root, p.home, ['list']).stdout);
+  expect(list.map((t: { agent: string }) => t.agent)).toEqual(['opencode']);
+  expect(cli(p.root, p.home, ['undo', '--yes']).status).toBe(0);
+  expect(p.read('a.txt')).toBe('hello\n');
 }, 30_000);
 
 it('prints usage and exits 2 for an unknown command', () => {

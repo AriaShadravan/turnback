@@ -9,10 +9,10 @@ import { install, uninstall } from './install.js';
 import { record } from './recorder.js';
 import { applyRestore, planRestore, redoTarget, undoTarget, type Operation } from './restore.js';
 import { Store } from './store.js';
-import type { Agent } from './types.js';
+import type { Agent, HookEvent } from './types.js';
 
 const USAGE = `Usage:
-  turnback install|uninstall <claude|codex|gemini|cursor|all> [--project] [--no-mcp]
+  turnback install|uninstall <claude|codex|gemini|cursor|opencode|antigravity|all> [--project] [--no-mcp]
   turnback list | status | gc
   turnback diff <turn>
   turnback restore <turn|snapshot> [--path <p>...] [--dry-run | --yes]
@@ -42,22 +42,28 @@ function output(value: unknown): void {
 }
 
 /** Hook entry point: always answers "allow", whatever happens while recording. */
-async function runHook(agent: Agent): Promise<void> {
-  let response = hookResponse(agent);
+async function runHook(agent: Agent, eventName?: string): Promise<void> {
+  let response = hookResponse(agent, eventName);
   try {
     let raw = '';
     for await (const chunk of process.stdin) raw += chunk;
     const payload = JSON.parse(raw || '{}');
-    response = hookResponse(agent, payload.hook_event_name);
-    const event = parseHook(agent, payload);
+    response = hookResponse(agent, payload.hook_event_name ?? eventName);
+    const event = parseHook(agent, payload, process.cwd(), eventName);
     if (event) {
       record(event);
-      if (event.kind === 'session-start') warmInBackground(event.cwd);
+      if (needsWarm(event)) warmInBackground(event.cwd);
     }
   } catch (e) {
     logHookError(e);
   }
-  process.stdout.write(response + '\n');
+  if (response) process.stdout.write(response + '\n');
+}
+
+/** Warm at session start, or at a turn start while the workspace has no snapshot (Antigravity has no session hook). */
+function needsWarm(event: HookEvent): boolean {
+  if (event.kind === 'session-start') return true;
+  return event.kind === 'turn-start' && !new Store(event.cwd).latestRef();
 }
 
 function runRestore(store: Store, operation: Operation, args: Args): void {
@@ -81,7 +87,7 @@ async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
   const args = parseArgs(rest);
 
-  if (command === 'hook') return runHook(args.positional[0] as Agent);
+  if (command === 'hook') return runHook(args.positional[0] as Agent, args.positional[1]);
   if (command === 'mcp') return (await import('./mcp.js')).serveMcp();
 
   const store = new Store(process.cwd());

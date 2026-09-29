@@ -1,4 +1,4 @@
-export type Agent = 'claude' | 'codex' | 'gemini' | 'cursor';
+export type Agent = 'claude' | 'codex' | 'gemini' | 'cursor' | 'opencode' | 'antigravity';
 
 /** Neutral event translated from each agent's hook payload. */
 export type HookKind = 'session-start' | 'turn-start' | 'edit' | 'shell' | 'turn-end';

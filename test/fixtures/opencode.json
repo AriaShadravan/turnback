@@ -1,0 +1,1 @@
+{"hook_event_name":"tool.execute.before","session_id":"s","tool_name":"bash","tool_input":{"command":"echo ok"}}

@@ -1,0 +1,1 @@
+{"conversationId":"s","stepIdx":2,"toolCall":{"name":"run_command","args":{"CommandLine":"echo ok","WaitMsBeforeAsync":1000}}}

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { beforeEach, expect, it } from 'vitest';
@@ -53,4 +53,42 @@ it('refuses to overwrite a config file it cannot parse', () => {
   writeFileSync(hooksFile('gemini'), '{ "hooks": { // comment\n } }');
   expect(() => install('gemini', true, root, CLI_PATH)).toThrow(/Cannot parse/);
   expect(readFileSync(hooksFile('gemini'), 'utf8')).toContain('// comment');
+});
+
+it('installs Antigravity hooks under a turnback key, with the event as an argument', () => {
+  const file = path.join(root, '.agents', 'hooks.json');
+  mkdirSync(path.dirname(file));
+  writeFileSync(file, JSON.stringify({ other: { PreToolUse: [] } }));
+  const touched = install('antigravity', true, root, CLI_PATH);
+  expect(install('antigravity', true, root, CLI_PATH)).toEqual(touched);
+  // Antigravity has no project-level MCP config, so only the hook file is written.
+  expect(touched).toEqual([file]);
+
+  const config = JSON.parse(readFileSync(file, 'utf8'));
+  expect(config.other).toEqual({ PreToolUse: [] });
+  expect(config.turnback.PreInvocation[0].command).toBe(`node ${CLI_PATH} hook antigravity PreInvocation`);
+  expect(config.turnback.PreToolUse[0].matcher).toContain('write_to_file');
+  expect(config.turnback.PreToolUse[0].hooks[0].command).toMatch(/hook antigravity PreToolUse$/);
+
+  uninstall('antigravity', true, root);
+  expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({ other: { PreToolUse: [] } });
+});
+
+it('installs the OpenCode plugin and MCP entry, and uninstall removes both', () => {
+  writeFileSync(path.join(root, 'opencode.json'), JSON.stringify({ $schema: 'https://opencode.ai/config.json', mcp: { other: { type: 'local' } } }));
+  const plugin = path.join(root, '.opencode', 'plugins', 'turnback.js');
+  expect(install('opencode', true, root, CLI_PATH)).toEqual([plugin, path.join(root, 'opencode.json')]);
+  expect(readFileSync(plugin, 'utf8')).toContain(JSON.stringify(CLI_PATH));
+  const config = JSON.parse(readFileSync(path.join(root, 'opencode.json'), 'utf8'));
+  expect(config.mcp.turnback).toEqual({ type: 'local', command: ['node', CLI_PATH, 'mcp'], enabled: true });
+
+  uninstall('opencode', true, root);
+  expect(existsSync(plugin)).toBe(false);
+  expect(JSON.parse(readFileSync(path.join(root, 'opencode.json'), 'utf8')).mcp).toEqual({ other: { type: 'local' } });
+});
+
+it('prefers an existing opencode.jsonc', () => {
+  writeFileSync(path.join(root, 'opencode.jsonc'), '{}');
+  expect(install('opencode', true, root, CLI_PATH)).toContain(path.join(root, 'opencode.jsonc'));
+  expect(existsSync(path.join(root, 'opencode.json'))).toBe(false);
 });

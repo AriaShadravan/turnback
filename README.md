@@ -2,7 +2,7 @@
 
 Turnback records file state before and during a coding agent's turn, then restores it through the CLI or MCP. The shadow Git repo lives in `~/.turnback` (or `TURNBACK_HOME`), separate from the project's `.git`.
 
-Supports Claude Code, Codex, Gemini CLI, and Cursor. Requires Node.js 22+ and Git 2.25+. Claude Code and Codex have been tested live; Gemini CLI and Cursor are covered by tests built from their documented hook payloads.
+Supports Claude Code, Codex, Gemini CLI, Cursor, OpenCode, and Antigravity CLI. Requires Node.js 22+ and Git 2.25+. Claude Code, Codex, OpenCode, and Antigravity CLI have been tested live; Gemini CLI and Cursor are covered by tests built from their documented hook payloads.
 
 ```bash
 npm install -g turnback
