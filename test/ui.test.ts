@@ -1,8 +1,9 @@
+import { spawn } from 'node:child_process';
 import { request } from 'node:http';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { Store } from '../src/store.js';
 import { startUi, type UiServer } from '../src/ui.js';
-import { hook, tempProject } from './helpers.js';
+import { CLI, hook, tempProject } from './helpers.js';
 
 let p: ReturnType<typeof tempProject>;
 let ui: UiServer;
@@ -62,3 +63,28 @@ it('rejects requests without the token, from other hosts, or that write', async 
   expect(await rawStatus('POST', `127.0.0.1:${port}`)).toBe(405);
   expect(await rawStatus('GET', `localhost:${port}`)).toBe(200);
 });
+
+it('never inserts data as HTML', async () => {
+  const html = await (await get('')).text();
+  expect(html).not.toContain('innerHTML');
+  expect(html).toContain('api/turns');
+});
+
+it('starts from the CLI and prints its URL', async () => {
+  const child = spawn(process.execPath, [CLI, 'ui', '--no-open'], { cwd: p.root, env: { ...process.env, TURNBACK_HOME: p.home }, windowsHide: true });
+  try {
+    const url = await new Promise<string>((resolve, reject) => {
+      let out = '';
+      child.stdout.on('data', chunk => {
+        out += chunk;
+        const m = /http:\/\/127\.0\.0\.1:\d+\/[0-9a-f]{32}\//.exec(out);
+        if (m) resolve(m[0]);
+      });
+      child.on('exit', code => reject(new Error(`ui exited with ${code}: ${out}`)));
+    });
+    const data = await (await fetch(new URL('api/turns', url))).json();
+    expect(data.turns[0].prompt).toBe('edit a');
+  } finally {
+    child.kill();
+  }
+}, 30_000);

@@ -21,6 +21,7 @@ const USAGE = `Usage:
   turnback mark <label> | marks [--json]
   turnback restore <turn|mark|snapshot> [--before-step <n>] [--path <p>...] [--dry-run | --yes]
   turnback undo | redo [--dry-run | --yes]
+  turnback ui [--port <n>] [--no-open]
   turnback mcp`;
 
 const CLI = fileURLToPath(import.meta.url);
@@ -151,6 +152,13 @@ async function main(): Promise<void> {
       output(args.flags.has('--json') ? marks : formatMarks(marks));
       return;
     }
+    case 'ui': {
+      const { startUi } = await import('./ui.js');
+      const ui = await startUi(store, Number(args.values.get('--port') ?? 0));
+      output(`Turnback UI: ${ui.url}\nRead-only. Press Ctrl+C to stop.`);
+      if (!args.flags.has('--no-open')) openBrowser(ui.url);
+      return;
+    }
     case 'diff': {
       const id = args.positional[0];
       if (!id) throw new Error('Missing turn id');
@@ -170,6 +178,14 @@ async function main(): Promise<void> {
 
 function warmInBackground(cwd: string): void {
   spawn(process.execPath, [CLI, 'warm'], { cwd, detached: true, stdio: 'ignore', windowsHide: true }).unref();
+}
+
+/** Open a URL in the default browser; if that fails, the user opens the printed URL by hand. */
+function openBrowser(url: string): void {
+  const [command, argv, verbatim] = process.platform === 'win32'
+    ? ['cmd', ['/c', 'start', '""', url], true]
+    : [process.platform === 'darwin' ? 'open' : 'xdg-open', [url], false];
+  spawn(command, argv, { detached: true, stdio: 'ignore', windowsHide: true, windowsVerbatimArguments: verbatim }).on('error', () => {}).unref();
 }
 
 function logHookError(error: unknown): void {
