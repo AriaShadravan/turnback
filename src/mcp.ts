@@ -2,6 +2,7 @@ import { CLIENT_CAPABILITIES_META_KEY, inputRequired, inputResponse, McpServer }
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import * as z from 'zod/v4';
 import { VERSION } from './config.js';
+import { formatTurns } from './format.js';
 import { applyRestore, planRestore, redoTarget } from './restore.js';
 import { Store } from './store.js';
 
@@ -31,7 +32,7 @@ export function createServer(): McpServer {
     try {
       const store = storeFor(workspace);
       const turns = store.turns().slice(0, limit).map(t => store.summarize(t));
-      return result({ turns }, `${turns.length} turns`);
+      return result({ turns }, formatTurns(turns));
     } catch (e) { return failure(e); }
   });
 

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hookResponse, parseHook } from './adapters.js';
 import { dataHome } from './config.js';
+import { formatTurns } from './format.js';
 import { install, uninstall } from './install.js';
 import { record } from './recorder.js';
 import { applyRestore, planRestore, redoTarget, undoTarget, type Operation } from './restore.js';
@@ -13,7 +14,7 @@ import type { Agent, HookEvent } from './types.js';
 
 const USAGE = `Usage:
   turnback install|uninstall <claude|codex|gemini|cursor|opencode|antigravity|all> [--project] [--no-mcp]
-  turnback list | status | gc
+  turnback list [--json] | status | gc
   turnback diff <turn>
   turnback restore <turn|snapshot> [--path <p>...] [--dry-run | --yes]
   turnback undo | redo [--dry-run | --yes]
@@ -103,9 +104,11 @@ async function main(): Promise<void> {
     case 'uninstall':
       output(uninstall(args.positional[0] ?? 'all', args.flags.has('--project'), store.root));
       return;
-    case 'list':
-      output(store.turns().map(t => store.summarize(t)));
+    case 'list': {
+      const turns = store.turns().map(t => store.summarize(t));
+      output(args.flags.has('--json') ? turns : formatTurns(turns));
       return;
+    }
     case 'status':
       output(store.status());
       return;

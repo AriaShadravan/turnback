@@ -64,7 +64,7 @@ it('undoes a destructive shell turn end to end through the CLI', () => {
   p.write('junk.txt', 'junk');
   send({ hook_event_name: 'Stop' });
 
-  const list = JSON.parse(cli(p.root, p.home, ['list']).stdout);
+  const list = JSON.parse(cli(p.root, p.home, ['list', '--json']).stdout);
   expect(list).toHaveLength(1);
   expect(list[0].changedFiles).toBe(3);
 
@@ -98,7 +98,7 @@ it('undoes an Antigravity turn recorded from event-name arguments', () => {
   rmSync(p.file('a.txt'));
   send('Stop', { terminationReason: 'NO_TOOL_CALL', fullyIdle: true });
 
-  const list = JSON.parse(cli(p.root, p.home, ['list']).stdout);
+  const list = JSON.parse(cli(p.root, p.home, ['list', '--json']).stdout);
   expect(list).toHaveLength(1);
   expect(list[0].agent).toBe('antigravity');
   expect(cli(p.root, p.home, ['undo', '--yes']).status).toBe(0);
@@ -119,7 +119,7 @@ it('undoes an OpenCode turn through the generated plugin', async () => {
   rmSync(p.file('a.txt'));
   await hooks.event({ event: { type: 'session.idle', properties: { sessionID: 'ses_1' } } });
 
-  const list = JSON.parse(cli(p.root, p.home, ['list']).stdout);
+  const list = JSON.parse(cli(p.root, p.home, ['list', '--json']).stdout);
   expect(list.map((t: { agent: string }) => t.agent)).toEqual(['opencode']);
   expect(cli(p.root, p.home, ['undo', '--yes']).status).toBe(0);
   expect(p.read('a.txt')).toBe('hello\n');

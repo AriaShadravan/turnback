@@ -15,7 +15,7 @@ turnback undo --yes
 
 `install all` without `--project` installs the user-level config. `uninstall all [--project]` removes only Turnback entries. `--no-mcp` installs hooks without MCP. Other config is kept.
 
-Available commands: `install`, `uninstall`, `list`, `diff`, `status`, `restore`, `undo`, `redo`, `gc`, and `mcp`. `restore <turn> --path <file> --dry-run` shows the plan. `--yes` applies it. `redo --yes` returns to the safety snapshot taken before the last restore. Restoring changes project files; the agent's conversation context is not restored.
+Available commands: `install`, `uninstall`, `list`, `diff`, `status`, `restore`, `undo`, `redo`, `gc`, and `mcp`. `restore <turn> --path <file> --dry-run` shows the plan. `--yes` applies it. `redo --yes` returns to the safety snapshot taken before the last restore. Restoring changes project files; the agent's conversation context is not restored. `list` shows each turn's prompt, agent, and changed files; `list --json` prints the raw data. Set `{"prompts": false}` in `~/.turnback/config.json` to stop recording prompts.
 
 Documentation: [installation](guide/INSTALL.md), [restore](guide/RESTORE.md), [MCP](guide/MCP.md), and [scope](guide/LIMITS.md).
 
