@@ -23,8 +23,9 @@ jobs:
           PKG="$(node -p "require('./package.json').version")"
           SERVER="$(node -p "require('./server.json').version")"
           SERVER_PKG="$(node -p "require('./server.json').packages[0].version")"
-          echo "tag=$TAG package.json=$PKG server.json=$SERVER/$SERVER_PKG"
-          test "$TAG" = "$PKG" && test "$TAG" = "$SERVER" && test "$TAG" = "$SERVER_PKG"
+          PLUGIN="$(node -p "require('./.claude-plugin/plugin.json').version")"
+          echo "tag=$TAG package.json=$PKG server.json=$SERVER/$SERVER_PKG plugin.json=$PLUGIN"
+          test "$TAG" = "$PKG" && test "$TAG" = "$SERVER" && test "$TAG" = "$SERVER_PKG" && test "$TAG" = "$PLUGIN"
       - run: npm ci
       - run: npm run check
       # Provenance is attached automatically when publishing through a trusted publisher.
