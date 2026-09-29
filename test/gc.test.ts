@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { beforeEach, expect, it } from 'vitest';
-import { applyRestore, planRestore } from '../src/restore.js';
-import { Store } from '../src/store.js';
+import { applyRestore, planRestore } from '../src/core/restore.js';
+import { Store } from '../src/core/store.js';
 import { hook, tempProject } from './helpers.js';
 
 const DAY = 24 * 60 * 60 * 1000;

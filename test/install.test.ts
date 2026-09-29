@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { beforeEach, expect, it } from 'vitest';
-import { install, uninstall } from '../src/install.js';
+import { install, uninstall } from '../src/agents/install.js';
 
 const AGENTS = ['claude', 'codex', 'gemini', 'cursor'];
 const CLI_PATH = '/opt/turnback/dist/cli.js';

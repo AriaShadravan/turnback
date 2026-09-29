@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
-import { applyRestore, redoTarget } from '../src/restore.js';
-import { Store } from '../src/store.js';
+import { applyRestore, redoTarget } from '../src/core/restore.js';
+import { Store } from '../src/core/store.js';
 import { hook, tempProject } from './helpers.js';
 
 /** One turn: edit a.txt (v1), shell (v2), edit a.txt (v3). */

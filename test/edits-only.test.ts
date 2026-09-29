@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { applyRestore, planRestore, redoTarget } from '../src/restore.js';
-import { Store } from '../src/store.js';
+import { applyRestore, planRestore, redoTarget } from '../src/core/restore.js';
+import { Store } from '../src/core/store.js';
 import { hook, tempProject } from './helpers.js';
 
 let p: ReturnType<typeof tempProject>;

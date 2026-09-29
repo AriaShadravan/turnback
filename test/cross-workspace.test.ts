@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { beforeEach, expect, it } from 'vitest';
-import { applyRestore, planRestore } from '../src/restore.js';
-import { Store } from '../src/store.js';
+import { applyRestore, planRestore } from '../src/core/restore.js';
+import { Store } from '../src/core/store.js';
 import { hook, tempProject } from './helpers.js';
 
 // The agent session runs in `session`, but the agent edits a file in another project (`other`).

@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
-import { formatMarks, formatSteps, formatTurns } from '../src/format.js';
-import type { TurnSummary } from '../src/store.js';
+import { formatMarks, formatSteps, formatTurns } from '../src/core/format.js';
+import type { TurnSummary } from '../src/core/store.js';
 
 const turn = (extra: Partial<TurnSummary>): TurnSummary => ({
   id: 'claude:s:abc', agent: 'claude', time: '2026-09-29T07:03:00.000Z', status: 'ok', baseline: 'r1', end: 'r2', changedFiles: 5, ...extra,

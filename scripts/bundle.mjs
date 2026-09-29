@@ -5,8 +5,9 @@ import { rmSync } from 'node:fs';
 
 rmSync('dist', { recursive: true, force: true });
 await build({
-  // recorder and store are separate entries for scripts/benchmark.mjs.
-  entryPoints: ['src/cli.ts', 'src/recorder.ts', 'src/store.ts'],
+  // Output names are fixed: installed hooks and the Claude Code plugin run dist/cli.js,
+  // and scripts/benchmark.mjs imports dist/recorder.js and dist/store.js.
+  entryPoints: { cli: 'src/cli/main.ts', recorder: 'src/core/recorder.ts', store: 'src/core/store.ts' },
   bundle: true,
   platform: 'node',
   format: 'esm',

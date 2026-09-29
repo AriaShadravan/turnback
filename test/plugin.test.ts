@@ -1,8 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
-import { VERSION } from '../src/config.js';
-import { hookEvents } from '../src/install.js';
+import { VERSION } from '../src/core/config.js';
+import { hookEvents } from '../src/agents/install.js';
 
 const json = (file: string) => JSON.parse(readFileSync(file, 'utf8'));
 const HOOK_COMMAND = 'node "${CLAUDE_PLUGIN_ROOT}/dist/cli.js" hook claude';

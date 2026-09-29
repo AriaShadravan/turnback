@@ -1,8 +1,8 @@
 import { chmodSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { applyRestore } from '../src/restore.js';
-import { Store } from '../src/store.js';
+import { applyRestore } from '../src/core/restore.js';
+import { Store } from '../src/core/store.js';
 import { hook, tempProject } from './helpers.js';
 
 let p: ReturnType<typeof tempProject>;

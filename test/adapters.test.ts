@@ -2,7 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { expect, it } from 'vitest';
-import { hookResponse, parseHook } from '../src/adapters.js';
+import { hookResponse, parseHook } from '../src/agents/adapters.js';
 
 const root = mkdtempSync(path.join(tmpdir(), 'turnback-adapters-'));
 process.env.TURNBACK_HOME = mkdtempSync(path.join(tmpdir(), 'turnback-adapters-data-'));

@@ -3,15 +3,16 @@ import { spawn } from 'node:child_process';
 import { appendFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { hookResponse, parseHook } from './adapters.js';
-import { dataHome } from './config.js';
-import { formatMarks, formatSteps, formatTurns } from './format.js';
-import { install, uninstall } from './install.js';
-import { shellArg } from './quote.js';
-import { record } from './recorder.js';
-import { applyRestore, planRestore, redoTarget, undoTarget, type Operation } from './restore.js';
-import { Store } from './store.js';
-import type { Agent, HookEvent } from './types.js';
+import { hookResponse, parseHook } from '../agents/adapters.js';
+import { dataHome } from '../core/config.js';
+import { parseArgs, type Args } from './args.js';
+import { formatMarks, formatSteps, formatTurns } from '../core/format.js';
+import { install, uninstall } from '../agents/install.js';
+import { shellArg } from '../core/quote.js';
+import { record } from '../core/recorder.js';
+import { applyRestore, planRestore, redoTarget, undoTarget, type Operation } from '../core/restore.js';
+import { Store } from '../core/store.js';
+import type { Agent, HookEvent } from '../core/types.js';
 
 const USAGE = `Usage:
   turnback install|uninstall <claude|codex|gemini|cursor|opencode|antigravity|all> [--project] [--no-mcp]
@@ -26,27 +27,6 @@ const USAGE = `Usage:
   turnback mcp`;
 
 const CLI = fileURLToPath(import.meta.url);
-
-interface Args {
-  positional: string[];
-  flags: Set<string>;
-  paths: string[];
-  values: Map<string, string>;
-}
-
-/** Flags that take a value. */
-const VALUE_FLAGS = new Set(['--before-step', '--port']);
-
-function parseArgs(argv: string[]): Args {
-  const args: Args = { positional: [], flags: new Set(), paths: [], values: new Map() };
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--path' && argv[i + 1]) args.paths.push(argv[++i]);
-    else if (VALUE_FLAGS.has(argv[i]) && argv[i + 1] !== undefined) args.values.set(argv[i], argv[++i]);
-    else if (argv[i].startsWith('--')) args.flags.add(argv[i]);
-    else args.positional.push(argv[i]);
-  }
-  return args;
-}
 
 function output(value: unknown): void {
   process.stdout.write(typeof value === 'string' ? value + '\n' : JSON.stringify(value, null, 2) + '\n');
@@ -103,7 +83,7 @@ async function main(): Promise<void> {
   const args = parseArgs(rest);
 
   if (command === 'hook') return runHook(args.positional[0] as Agent, args.positional[1]);
-  if (command === 'mcp') return (await import('./mcp.js')).serveMcp();
+  if (command === 'mcp') return (await import('../mcp/server.js')).serveMcp();
 
   const store = new Store(process.cwd());
   switch (command) {
@@ -154,7 +134,7 @@ async function main(): Promise<void> {
       return;
     }
     case 'ui': {
-      const { startUi } = await import('./ui.js');
+      const { startUi } = await import('../ui/server.js');
       const ui = await startUi(store, Number(args.values.get('--port') ?? 0));
       output(`Turnback UI: ${ui.url}\nRead-only. Press Ctrl+C to stop.`);
       if (!args.flags.has('--no-open')) openBrowser(ui.url);

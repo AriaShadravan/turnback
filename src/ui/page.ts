@@ -1,4 +1,4 @@
-import { BARE_SAFE, QUOTE_SAFE } from './quote.js';
+import { BARE_SAFE, QUOTE_SAFE } from '../core/quote.js';
 
 /**
  * The single page of `turnback ui`: turn list on the left, the selected turn's steps and diff on the right.

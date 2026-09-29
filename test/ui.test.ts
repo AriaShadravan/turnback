@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process';
 import { request } from 'node:http';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { Store } from '../src/store.js';
-import { startUi, type UiServer } from '../src/ui.js';
+import { Store } from '../src/core/store.js';
+import { startUi, type UiServer } from '../src/ui/server.js';
 import { CLI, hook, tempProject } from './helpers.js';
 
 let p: ReturnType<typeof tempProject>;

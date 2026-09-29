@@ -2,10 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { isInside, MAX_FILE_BYTES, pathKey, sha256, sleep } from './config.js';
-import type { TreeItem } from './shadow.js';
+import type { TreeItem } from '../git/shadow.js';
 import type { Store } from './store.js';
 import type { Entry } from './types.js';
-import type { FileState } from './workspace.js';
+import type { FileState } from '../workspace/workspace.js';
 
 export type Operation = 'restore' | 'undo' | 'redo';
 

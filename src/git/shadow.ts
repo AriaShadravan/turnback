@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { existsSync, lstatSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { EXCLUDED_DIRS, importBatchBytes, MAX_FILE_BYTES } from './config.js';
-import { blobId } from './workspace.js';
+import { EXCLUDED_DIRS, importBatchBytes, MAX_FILE_BYTES } from '../core/config.js';
+import { blobId } from '../workspace/workspace.js';
 
 export interface TreeItem {
   oid: string;

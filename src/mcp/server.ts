@@ -1,10 +1,10 @@
 import { CLIENT_CAPABILITIES_META_KEY, inputRequired, inputResponse, McpServer } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import * as z from 'zod/v4';
-import { VERSION } from './config.js';
-import { formatSteps, formatTurns } from './format.js';
-import { applyRestore, planRestore, redoTarget } from './restore.js';
-import { Store } from './store.js';
+import { VERSION } from '../core/config.js';
+import { formatSteps, formatTurns } from '../core/format.js';
+import { applyRestore, planRestore, redoTarget } from '../core/restore.js';
+import { Store } from '../core/store.js';
 
 const MAX_DIFF_CHARS = 40_000;
 const SUMMARY_CHARS = 4_000;

@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, it } from 'vitest';
-import { applyRestore, redoTarget } from '../src/restore.js';
-import { Store } from '../src/store.js';
+import { applyRestore, redoTarget } from '../src/core/restore.js';
+import { Store } from '../src/core/store.js';
 import { hook, tempProject } from './helpers.js';
 
 it('restores the workspace to a named mark and back', () => {

@@ -7,9 +7,9 @@ import {
 import { Journal, turnKey } from './journal.js';
 import { QUOTE_SAFE } from './quote.js';
 import { LockTimeoutError, waitForUnlock, withLock } from './lock.js';
-import { ShadowRepo } from './shadow.js';
+import { ShadowRepo } from '../git/shadow.js';
 import type { Entry, EntryKind, EntryOrigin, Mark, Mode, NewEntry, Step, Turn } from './types.js';
-import { Workspace, type Scan } from './workspace.js';
+import { Workspace, type Scan } from '../workspace/workspace.js';
 
 const WARM_ORIGIN: EntryOrigin = { agent: 'turnback', session: 'warm', turn: 'warm' };
 const CORRUPT_PREFIX = 'corrupt-';

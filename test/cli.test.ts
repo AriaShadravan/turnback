@@ -3,8 +3,8 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { expect, it } from 'vitest';
-import { install } from '../src/install.js';
-import { Store } from '../src/store.js';
+import { install } from '../src/agents/install.js';
+import { Store } from '../src/core/store.js';
 import { CLI, tempProject } from './helpers.js';
 
 const AGENTS = ['claude', 'codex', 'gemini', 'cursor', 'opencode', 'antigravity'];

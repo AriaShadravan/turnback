@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { applyRestore, planRestore, redoTarget, undoTarget } from '../src/restore.js';
-import { Store } from '../src/store.js';
+import { applyRestore, planRestore, redoTarget, undoTarget } from '../src/core/restore.js';
+import { Store } from '../src/core/store.js';
 import { hook, tempProject } from './helpers.js';
 
 let p: ReturnType<typeof tempProject>;

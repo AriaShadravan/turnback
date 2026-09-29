@@ -45,16 +45,13 @@ Workspaces above 100k files or 2 GB switch to `edits-only` mode: only paths touc
 
 | Module | Contents |
 |---|---|
-| `src/cli.ts` | CLI and hook entry point |
-| `src/adapters.ts` | Each agent's hook payload → `HookEvent` |
-| `src/recorder.ts` | Snapshot rules per event |
-| `src/store.ts` | Journal, snapshots, turn history, status, `gc` |
-| `src/restore.ts` | Restore planning and execution, undo, redo |
-| `src/shadow.ts` | Shadow git repo wrapper |
-| `src/workspace.ts` | Workspace scanning and exclusion rules |
-| `src/journal.ts`, `src/lock.ts`, `src/config.ts` | JSONL journal, per-workspace lock, constants |
-| `src/install.ts` | Hook and MCP installation per agent |
-| `src/mcp.ts` | Stdio MCP server |
+| `src/cli/` | `main.ts`: CLI and hook entry point (built as `dist/cli.js`); `args.ts`: argument parsing |
+| `src/core/` | `recorder.ts`: snapshot rules per event; `store.ts`: journal, snapshots, turns, steps, marks, status, `gc`; `restore.ts`: restore planning and execution, undo, redo; `format.ts`: text output; `quote.ts`: shell-safe arguments; `journal.ts`, `lock.ts`, `config.ts`, `types.ts` |
+| `src/git/` | `shadow.ts`: shadow git repo wrapper |
+| `src/workspace/` | `workspace.ts`: workspace scanning and exclusion rules |
+| `src/agents/` | `adapters.ts`: each agent's hook payload → `HookEvent`; `install.ts`: hook and MCP installation per agent; `opencode-plugin.ts`: generated OpenCode plugin |
+| `src/mcp/` | `server.ts`: stdio MCP server |
+| `src/ui/` | `server.ts`: read-only local server for `turnback ui`; `page.ts`: its single page |
 
 ```bash
 npm run check

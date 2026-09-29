@@ -1,8 +1,8 @@
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, it } from 'vitest';
-import { PROMPT_CHARS } from '../src/config.js';
-import { Store } from '../src/store.js';
+import { PROMPT_CHARS } from '../src/core/config.js';
+import { Store } from '../src/core/store.js';
 import { hook, tempProject } from './helpers.js';
 
 function turnWithPrompt(prompt: string) {

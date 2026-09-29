@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { createServer, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import type { Store } from './store.js';
-import { UI_PAGE } from './ui-page.js';
+import type { Store } from '../core/store.js';
+import { UI_PAGE } from './page.js';
 
 /** Larger diffs are cut so the browser tab stays responsive; the CLI prints the full patch. */
 export const MAX_UI_DIFF_CHARS = 400_000;

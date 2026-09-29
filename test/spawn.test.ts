@@ -8,7 +8,7 @@ import { expect, it } from 'vitest';
  */
 it('hides the window of every child process started from src', () => {
   const missing: string[] = [];
-  for (const name of readdirSync('src').filter(f => f.endsWith('.ts'))) {
+  for (const name of readdirSync('src', { recursive: true, encoding: 'utf8' }).filter(f => f.endsWith('.ts'))) {
     const source = readFileSync(path.join('src', name), 'utf8');
     for (const m of source.matchAll(/\bspawn(?:Sync)?\(/g)) {
       const call = source.slice(m.index, source.indexOf(');', m.index));

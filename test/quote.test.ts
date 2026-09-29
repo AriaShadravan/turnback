@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
-import { shellArg } from '../src/quote.js';
-import { Store } from '../src/store.js';
-import { UI_PAGE } from '../src/ui-page.js';
+import { shellArg } from '../src/core/quote.js';
+import { Store } from '../src/core/store.js';
+import { UI_PAGE } from '../src/ui/page.js';
 import { tempProject } from './helpers.js';
 
 it('quotes only text that is safe to paste into bash and PowerShell', () => {

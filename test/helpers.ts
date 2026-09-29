@@ -2,8 +2,8 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { record } from '../src/recorder.js';
-import type { HookEvent } from '../src/types.js';
+import { record } from '../src/core/recorder.js';
+import type { HookEvent } from '../src/core/types.js';
 
 export const CLI = path.resolve('dist/cli.js');
 

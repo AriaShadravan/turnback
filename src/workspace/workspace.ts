@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { lstatSync, readdirSync, readFileSync, readlinkSync, type Stats } from 'node:fs';
 import path from 'node:path';
 import ignore, { type Ignore } from 'ignore';
-import { canonicalPath, EXCLUDED_DIRS, MAX_FILE_BYTES, userConfig } from './config.js';
+import { canonicalPath, EXCLUDED_DIRS, MAX_FILE_BYTES, userConfig } from '../core/config.js';
 
 export interface Scan {
   /** Files in snapshot scope (relative paths, `/` separator). */

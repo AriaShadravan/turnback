@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { workspaceDataDir, workspaceRoot } from './config.js';
-import type { Agent, HookEvent, HookKind } from './types.js';
+import { workspaceDataDir, workspaceRoot } from '../core/config.js';
+import type { Agent, HookEvent, HookKind } from '../core/types.js';
 
 type Payload = Record<string, any>;
 
