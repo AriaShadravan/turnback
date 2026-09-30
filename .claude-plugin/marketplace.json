@@ -12,7 +12,7 @@
       "source": {
         "source": "npm",
         "package": "turnback",
-        "version": "^0.4.0"
+        "version": "^0.5.0"
       },
       "category": "safety",
       "tags": [
