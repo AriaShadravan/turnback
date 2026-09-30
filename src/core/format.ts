@@ -4,7 +4,7 @@ import type { Mark, Step } from './types.js';
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** Local time as `YYYY-MM-DD HH:MM`. */
-function localTime(iso: string): string {
+export function formatTime(iso: string): string {
   const d = new Date(iso);
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
@@ -16,7 +16,7 @@ export function formatTurns(turns: TurnSummary[]): string {
     const files = `${t.changedFiles} ${t.changedFiles === 1 ? 'file ' : 'files'}`;
     const partial = t.status === 'ok' ? '' : '[partial] ';
     const label = t.prompt ? JSON.stringify(t.prompt) : '(no prompt)';
-    return `#${i + 1} ${localTime(t.time)}  ${t.agent.padEnd(11)} ${files.padStart(9)}  ${partial}${label}\n   ${t.id}`;
+    return `#${i + 1} ${formatTime(t.time)}  ${t.agent.padEnd(11)} ${files.padStart(9)}  ${partial}${label}\n   ${t.id}`;
   }).join('\n');
 }
 
@@ -26,12 +26,12 @@ export function formatSteps(steps: Step[]): string {
   return steps.map(s => {
     const detail = s.kind === 'shell' ? s.command ?? '' : (s.paths ?? []).join(', ');
     const missing = s.ref ? '' : `  (no snapshot: ${s.reason ?? s.status})`;
-    return `${s.n}. ${localTime(s.time).slice(11)}  ${s.kind.padEnd(5)}  ${detail}${missing}`;
+    return `${s.n}. ${formatTime(s.time).slice(11)}  ${s.kind.padEnd(5)}  ${detail}${missing}`;
   }).join('\n');
 }
 
 /** Marks, newest first: number, local time, label, then ref. */
 export function formatMarks(marks: Mark[]): string {
   if (!marks.length) return 'No marks yet. Create one with `turnback mark <label>`.';
-  return marks.map((m, i) => `#${i + 1} ${localTime(m.time)}  ${JSON.stringify(m.label)}\n   ${m.ref}`).join('\n');
+  return marks.map((m, i) => `#${i + 1} ${formatTime(m.time)}  ${JSON.stringify(m.label)}\n   ${m.ref}`).join('\n');
 }

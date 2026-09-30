@@ -7,6 +7,7 @@ import { hookResponse, parseHook } from '../agents/adapters.js';
 import { dataHome } from '../core/config.js';
 import { parseArgs, type Args } from './args.js';
 import { exportCommit, exportPatch } from '../core/export.js';
+import { sessionReport } from '../core/report.js';
 import { formatMarks, formatSteps, formatTurns } from '../core/format.js';
 import { install, uninstall } from '../agents/install.js';
 import { shellArg } from '../core/quote.js';
@@ -26,6 +27,7 @@ const USAGE = `Usage:
   turnback restore <turn|mark|snapshot> [--before-step <n>] [--path <p>...] [--dry-run | --yes]
   turnback undo | redo [--dry-run | --yes]
   turnback export <turn...> [--out <file.patch>] | --commit [--message <text>]
+  turnback report [--session <id>]
   turnback ui [--port <n>] [--no-open]
   turnback mcp`;
 
@@ -164,6 +166,9 @@ async function main(): Promise<void> {
       } else process.stdout.write(patch);
       return;
     }
+    case 'report':
+      output(sessionReport(store, args.values.get('--session')));
+      return;
     case 'diff': {
       const id = args.positional[0];
       if (!id) throw new Error('Missing turn id');

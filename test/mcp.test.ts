@@ -29,7 +29,7 @@ it('serves read tools and a two-step restore', async () => {
   const client = await connect(new Client({ name: 'test', version: '1.0.0' }));
   try {
     const { tools } = await client.listTools();
-    expect(tools.map(t => t.name).sort()).toEqual(['diff_turn', 'list_turns', 'redo', 'restore', 'status', 'turn_steps']);
+    expect(tools.map(t => t.name).sort()).toEqual(['diff_turn', 'list_turns', 'redo', 'restore', 'session_report', 'status', 'turn_steps']);
     expect(tools.find(t => t.name === 'restore')?.annotations?.destructiveHint).toBe(true);
     expect(tools.find(t => t.name === 'list_turns')?.annotations?.readOnlyHint).toBe(true);
     expect((await call(client, 'list_turns', {})).data.turns[0].changedFiles).toBe(1);
@@ -123,6 +123,16 @@ it('lists the steps of a turn with their snapshot refs', async () => {
     const { data } = await call(client, 'turn_steps', { turn: 't' });
     expect(data.steps).toHaveLength(1);
     expect(data.steps[0].ref).toMatch(/^refs\/turnback\//);
+  } finally {
+    await client.close();
+  }
+}, 15_000);
+
+it('returns a session report as markdown', async () => {
+  const client = await connect(new Client({ name: 'test', version: '1.0.0' }));
+  try {
+    const result = await call(client, 'session_report', {});
+    expect((result.content as any)[0].text).toMatch(/^# Turnback report/);
   } finally {
     await client.close();
   }

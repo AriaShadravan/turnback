@@ -3,6 +3,7 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import * as z from 'zod/v4';
 import { VERSION } from '../core/config.js';
 import { formatSteps, formatTurns } from '../core/format.js';
+import { sessionReport } from '../core/report.js';
 import { applyRestore, planRestore, redoTarget } from '../core/restore.js';
 import { Store } from '../core/store.js';
 
@@ -61,6 +62,17 @@ export function createServer(): McpServer {
     try {
       const steps = storeFor(workspace).steps(turn);
       return result({ turn, steps }, formatSteps(steps));
+    } catch (e) { return failure(e); }
+  });
+
+  server.registerTool('session_report', {
+    description: "Markdown report of one agent session: each turn's prompt, commands, and changed files. Defaults to the latest session.",
+    inputSchema: z.object({ session: z.string().optional(), workspace: workspaceParam }),
+    annotations: { readOnlyHint: true },
+  }, async ({ session, workspace }) => {
+    try {
+      const report = sessionReport(storeFor(workspace), session);
+      return result({ report }, report);
     } catch (e) { return failure(e); }
   });
 
