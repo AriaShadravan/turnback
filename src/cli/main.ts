@@ -23,6 +23,7 @@ const USAGE = `Usage:
   turnback list [--json] | status | gc
   turnback steps <turn> [--json]
   turnback log <file|folder> [--json]
+  turnback search <text> [--json]
   turnback diff <turn>
   turnback mark <label> | marks [--json]
   turnback restore <turn|mark|snapshot> [--before-step <n>] [--path <p>...] [--dry-run | --yes]
@@ -166,6 +167,11 @@ async function main(): Promise<void> {
         writeFileSync(path.resolve(out), patch);
         output(`Wrote ${out}. Apply it with: git apply ${shellArg(out) ?? out}`);
       } else process.stdout.write(patch);
+      return;
+    }
+    case 'search': {
+      const turns = store.searchTurns(args.positional.join(' '));
+      output(args.flags.has('--json') ? turns : turns.length ? formatTurns(turns) : 'No matching turns.');
       return;
     }
     case 'compare': {

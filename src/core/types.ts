@@ -28,7 +28,8 @@ export type EntryKind =
   | 'undo'
   | 'redo'
   | 'gc'
-  | 'mark';
+  | 'mark'
+  | 'probe';
 
 export type EntryStatus = 'ok' | 'skipped' | 'failed' | 'unprotected';
 

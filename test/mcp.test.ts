@@ -29,7 +29,7 @@ it('serves read tools and a two-step restore', async () => {
   const client = await connect(new Client({ name: 'test', version: '1.0.0' }));
   try {
     const { tools } = await client.listTools();
-    expect(tools.map(t => t.name).sort()).toEqual(['compare_turns', 'diff_turn', 'list_turns', 'redo', 'restore', 'session_report', 'status', 'turn_steps']);
+    expect(tools.map(t => t.name).sort()).toEqual(['compare_turns', 'diff_range', 'diff_turn', 'file_history', 'list_turns', 'redo', 'restore', 'search_turns', 'session_report', 'status', 'turn_steps']);
     expect(tools.find(t => t.name === 'restore')?.annotations?.destructiveHint).toBe(true);
     expect(tools.find(t => t.name === 'list_turns')?.annotations?.readOnlyHint).toBe(true);
     expect((await call(client, 'list_turns', {})).data.turns[0].changedFiles).toBe(1);
@@ -133,6 +133,19 @@ it('returns a session report as markdown', async () => {
   try {
     const result = await call(client, 'session_report', {});
     expect((result.content as any)[0].text).toMatch(/^# Turnback report/);
+  } finally {
+    await client.close();
+  }
+}, 15_000);
+
+it('shows what changed since a turn started, including uncommitted edits', async () => {
+  const client = await connect(new Client({ name: 'test', version: '1.0.0' }));
+  try {
+    p.write('a.txt', 'later');
+    const { data } = await call(client, 'diff_range', { from: 't', patch: true });
+    expect(data.diff).toContain('+later');
+    expect((await call(client, 'file_history', { path: 'a.txt' })).data.turns).toHaveLength(1);
+    expect((await call(client, 'search_turns', { query: 'a.txt' })).data.turns).toHaveLength(1);
   } finally {
     await client.close();
   }

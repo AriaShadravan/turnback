@@ -1,11 +1,12 @@
 import { CLIENT_CAPABILITIES_META_KEY, inputRequired, inputResponse, McpServer } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
+import path from 'node:path';
 import * as z from 'zod/v4';
 import { VERSION } from '../core/config.js';
 import { formatSteps, formatTurns } from '../core/format.js';
 import { compareTurns } from '../core/compare.js';
 import { sessionReport } from '../core/report.js';
-import { applyRestore, planRestore, redoTarget } from '../core/restore.js';
+import { applyRestore, planRestore, redoTarget, resolveRef } from '../core/restore.js';
 import { Store } from '../core/store.js';
 
 const MAX_DIFF_CHARS = 40_000;
@@ -63,6 +64,49 @@ export function createServer(): McpServer {
     try {
       const steps = storeFor(workspace).steps(turn);
       return result({ turn, steps }, formatSteps(steps));
+    } catch (e) { return failure(e); }
+  });
+
+  server.registerTool('file_history', {
+    description: 'List the turns that changed a file or folder, newest first',
+    inputSchema: z.object({ path: z.string().describe('File or folder, relative to the workspace or absolute'), workspace: workspaceParam }),
+    annotations: { readOnlyHint: true },
+  }, async ({ path: target, workspace }) => {
+    try {
+      const store = storeFor(workspace);
+      const turns = store.fileHistory(path.resolve(store.root, target));
+      return result({ turns }, formatTurns(turns));
+    } catch (e) { return failure(e); }
+  });
+
+  server.registerTool('search_turns', {
+    description: 'Find turns whose prompt, shell commands, or edited paths contain the text',
+    inputSchema: z.object({ query: z.string(), workspace: workspaceParam, limit: z.number().int().min(1).max(100).default(20) }),
+    annotations: { readOnlyHint: true },
+  }, async ({ query, workspace, limit }) => {
+    try {
+      const turns = storeFor(workspace).searchTurns(query).slice(0, limit);
+      return result({ turns }, formatTurns(turns));
+    } catch (e) { return failure(e); }
+  });
+
+  server.registerTool('diff_range', {
+    description: 'Show what changed from a turn start, mark, or snapshot ref to another point or to the current files (default). Use it to review your own work before saying a task is done.',
+    inputSchema: z.object({
+      from: z.string().describe('Turn ID (its start), mark label, or snapshot ref'),
+      to: z.string().optional().describe('Same forms as from; defaults to the current files'),
+      patch: z.boolean().default(false),
+      workspace: workspaceParam,
+    }),
+    annotations: { readOnlyHint: true },
+  }, async ({ from, to, patch, workspace }) => {
+    try {
+      const store = storeFor(workspace);
+      const a = resolveRef(store, from);
+      // A probe snapshot only writes to Turnback's own shadow repo, never to project files.
+      const b = to ? resolveRef(store, to) : store.probe();
+      const diff = patch ? store.repo.diffPatch(a, b) : store.repo.diffStat(a, b);
+      return result({ from: a, to: b, diff: diff.slice(0, MAX_DIFF_CHARS), truncated: diff.length > MAX_DIFF_CHARS }, diff.slice(0, SUMMARY_CHARS) || 'No changes.');
     } catch (e) { return failure(e); }
   });
 

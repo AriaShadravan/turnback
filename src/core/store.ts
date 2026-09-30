@@ -1,7 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, lstatSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import {
-  EDITS_ONLY_BYTES, editsOnlyFiles, GC_INTERVAL_MS, LOCK_TIMEOUT_MS, RETENTION, WARM_WAIT_MS,
+  EDITS_ONLY_BYTES, editsOnlyFiles, GC_INTERVAL_MS, LOCK_TIMEOUT_MS, PROBE_TTL_MS, RETENTION, WARM_WAIT_MS,
   workspaceDataDir, workspaceRoot,
 } from './config.js';
 import { Journal, turnKey } from './journal.js';
@@ -282,6 +283,22 @@ export class Store {
     return { label: name, time: entry.time, ref: entry.ref };
   }
 
+  /** Turns whose prompt, shell commands, or edited paths contain `query` (case-insensitive); newest first. */
+  searchTurns(query: string): TurnSummary[] {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return [];
+    return this.turns().filter(turn => turn.entries.some(e =>
+      [e.prompt, e.command, ...(e.paths ? this.relativePaths(e.paths) : [])].some(text => text?.toLowerCase().includes(needle)),
+    )).map(t => this.summarize(t));
+  }
+
+  /** Snapshot the current files for a read-only comparison. gc removes probes after a day. */
+  probe(): string {
+    const entry = this.snapshot('probe', { agent: 'turnback', session: 'probe', turn: randomUUID() });
+    if (entry.status !== 'ok' || !entry.ref) throw new Error(`Snapshot failed: ${entry.note ?? entry.status}`);
+    return entry.ref;
+  }
+
   /** Marks, newest first. */
   marks(): Mark[] {
     return this.entries()
@@ -359,9 +376,15 @@ export class Store {
       const expired = turns.filter((t, i) => i >= keepTurns && Date.parse(t.time) < cutoff);
       const expiredIds = new Set(expired.map(t => t.id));
 
-      const keep = new Set(this.entries().filter(e => e.agent === 'turnback').flatMap(e => e.ref ?? []));
+      const entries = this.entries();
+      const keep = new Set(entries.filter(e => e.agent === 'turnback' && e.kind !== 'probe').flatMap(e => e.ref ?? []));
       for (const t of turns) if (!expiredIds.has(t.id)) for (const e of t.entries) if (e.ref) keep.add(e.ref);
       const deleted = new Set(expired.flatMap(t => t.entries.flatMap(e => e.ref && !keep.has(e.ref) ? [e.ref] : [])));
+      // The latest ref is the base of the next snapshot, so it stays even when it is an old probe.
+      const latest = this.latestRef();
+      for (const e of entries) {
+        if (e.kind === 'probe' && e.ref && !keep.has(e.ref) && e.ref !== latest && now - Date.parse(e.time) > PROBE_TTL_MS) deleted.add(e.ref);
+      }
 
       for (const ref of deleted) this.repo.deleteRef(ref);
       if (expired.length) {

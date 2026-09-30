@@ -196,6 +196,11 @@ export function redoTarget(store: Store): string | undefined {
   return stack.at(-1);
 }
 
+/** Snapshot ref for a turn (its baseline), a mark label, or a ref. */
+export function resolveRef(store: Store, target: string): string {
+  return resolveTarget(store, store.entries(), target).ref;
+}
+
 /** Target is a turn ID (restored to its baseline), a mark label, or a snapshot ref, in that order. */
 function resolveTarget(store: Store, entries: Entry[], target: string): { ref: string; since: number } {
   const turn = store.findTurn(target);

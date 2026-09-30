@@ -18,6 +18,8 @@ export const LOCK_STALE_MS = 60_000;
 export const WARM_WAIT_MS = 30_000;
 export const GC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 export const RETENTION = { days: 7, turns: 50 };
+/** Probe snapshots (from MCP diff_range) older than this are removed by gc. */
+export const PROBE_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** Rebuildable directories, never snapshotted or touched by restore. */
 export const EXCLUDED_DIRS = new Set([
