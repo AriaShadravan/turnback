@@ -40,6 +40,16 @@ jobs:
           else
             npm publish --access public
           fi
+      # The MCP registry checks the npm package, which takes a few minutes to appear after publishing.
+      - name: Wait until the version is visible on npm
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          for i in $(seq 1 30); do
+            if [ "$(npm view "turnback@$VERSION" version 2>/dev/null)" = "$VERSION" ]; then exit 0; fi
+            sleep 20
+          done
+          echo "turnback@$VERSION is still not visible on npm after 10 minutes"
+          exit 1
       - name: Install mcp-publisher
         run: |
           curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
