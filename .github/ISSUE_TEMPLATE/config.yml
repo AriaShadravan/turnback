@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Question or idea
+    url: https://github.com/MFaizR77/turnback/discussions
+    about: Ask how to use Turnback or suggest something before opening an issue.
   - name: Security issue
     url: https://github.com/MFaizR77/turnback/security/advisories/new
     about: Report privately, not in a public issue.

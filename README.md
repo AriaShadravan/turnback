@@ -93,7 +93,13 @@ Workspaces above 100k files or 2 GB switch to `edits-only` mode: only paths touc
 
 ## Contributing
 
-Issues labeled [`good first issue`](https://github.com/MFaizR77/turnback/labels/good%20first%20issue) are small and say which files they touch, and [support for more agents](guide/ADAPTERS.md) is welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the [architecture overview](guide/ARCHITECTURE.md).
+Issues labeled [`good first issue`](https://github.com/MFaizR77/turnback/labels/good%20first%20issue) are small and say which files they touch, and [support for more agents](guide/ADAPTERS.md) is welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the [architecture overview](guide/ARCHITECTURE.md). Questions and ideas go to [Discussions](https://github.com/MFaizR77/turnback/discussions).
+
+### Contributors
+
+[![Contributors](https://contrib.rocks/image?repo=MFaizR77/turnback)](https://github.com/MFaizR77/turnback/graphs/contributors)
+
+Every merged pull request is credited in the release notes.
 
 ## Development
 

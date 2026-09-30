@@ -2,6 +2,8 @@
 
 Thanks for helping. Issues labeled [`good first issue`](https://github.com/MFaizR77/turnback/labels/good%20first%20issue) are small and say which files and tests they touch. Support for a new agent is tracked under [`agent-adapter`](https://github.com/MFaizR77/turnback/labels/agent-adapter); see [adding an agent](guide/ADAPTERS.md).
 
+Questions about using or changing Turnback are welcome in [Discussions](https://github.com/MFaizR77/turnback/discussions).
+
 ## Setup
 
 Node.js 22+ and Git 2.25+.
