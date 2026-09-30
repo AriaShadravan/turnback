@@ -6,6 +6,7 @@ export default defineConfig({
   test: {
     // Tests drive real git processes; Windows runners need more than the 5 s default under load.
     testTimeout: 30_000,
+    setupFiles: ['test/setup.ts'],
     // Run git like a fresh machine or CI runner: no global/system config, so no user identity.
     env: {
       GIT_CONFIG_GLOBAL: path.join(tmpdir(), 'turnback-no-gitconfig'),

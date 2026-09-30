@@ -1,8 +1,8 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { beforeEach, expect, it } from 'vitest';
 import { install, uninstall } from '../src/agents/install.js';
+import { tempDir } from './helpers.js';
 
 const AGENTS = ['claude', 'codex', 'gemini', 'cursor'];
 const CLI_PATH = '/opt/turnback/dist/cli.js';
@@ -13,7 +13,7 @@ const hooksFile = (agent: string) => path.join(root, `.${agent}`, agent === 'cod
 const readConfig = (agent: string) => JSON.parse(readFileSync(hooksFile(agent), 'utf8'));
 
 beforeEach(() => {
-  root = mkdtempSync(path.join(tmpdir(), 'turnback-install-'));
+  root = tempDir('turnback-install-');
   for (const agent of AGENTS) {
     mkdirSync(path.join(root, `.${agent}`));
     writeFileSync(hooksFile(agent), JSON.stringify({ custom: { keep: true }, hooks: { Stop: [{ hooks: [{ type: 'command', command: 'other' }] }] } }));

@@ -1,15 +1,14 @@
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { cpSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, it } from 'vitest';
-import { tempProject } from './helpers.js';
+import { tempDir, tempProject } from './helpers.js';
 
 /** A copy of dist/ alone, as the Claude Code plugin receives it from npm without installing dependencies. */
 function isolatedCli(): string {
-  const dir = mkdtempSync(path.join(tmpdir(), 'turnback-bundle-'));
+  const dir = tempDir('turnback-bundle-');
   cpSync(path.resolve('dist'), path.join(dir, 'dist'), { recursive: true });
   writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ type: 'module' }));
   return path.join(dir, 'dist', 'cli.js');

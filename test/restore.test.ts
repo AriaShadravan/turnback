@@ -3,7 +3,7 @@ import path from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { applyRestore, planRestore, redoTarget, undoTarget } from '../src/core/restore.js';
 import { Store } from '../src/core/store.js';
-import { hook, tempProject } from './helpers.js';
+import { hook, removeLater, tempProject } from './helpers.js';
 
 let p: ReturnType<typeof tempProject>;
 beforeEach(() => { p = tempProject(); });
@@ -127,6 +127,7 @@ describe('snapshot and restore', () => {
   it('accepts paths spelled through an alias of the workspace (symlink, macOS /var, Windows 8.3)', () => {
     const alias = `${p.root}-alias`;
     symlinkSync(p.root, alias, 'junction');
+    removeLater(alias);
     const viaAlias = path.join(alias, 'a.txt');
     p.write('a.txt', 'before');
     expect(hook(p.root, 'edit', 't1', { paths: [viaAlias] })?.status).toBe('ok');

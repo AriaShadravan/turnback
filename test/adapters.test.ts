@@ -1,11 +1,10 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { expect, it } from 'vitest';
 import { hookResponse, parseHook } from '../src/agents/adapters.js';
+import { tempDir } from './helpers.js';
 
-const root = mkdtempSync(path.join(tmpdir(), 'turnback-adapters-'));
-process.env.TURNBACK_HOME = mkdtempSync(path.join(tmpdir(), 'turnback-adapters-data-'));
+const root = tempDir('turnback-adapters-');
+process.env.TURNBACK_HOME = tempDir('turnback-adapters-data-');
 
 it('maps all agents to neutral events', () => {
   const cases = [
