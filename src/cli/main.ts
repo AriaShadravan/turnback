@@ -13,6 +13,7 @@ import { formatConfigFiles, formatMarks, formatPlan, formatRestoreResult, format
 import { install, uninstall } from '../agents/install.js';
 import { shellArg } from '../core/quote.js';
 import { pendingForeignRoots, record } from '../core/recorder.js';
+import { changedFiles, runAsTurn } from '../core/run.js';
 import { turnWarning } from '../core/warnings.js';
 import { applyRestore, findRecoverable, planRestore, redoTarget, undoTarget, type Operation } from '../core/restore.js';
 import { Store } from '../core/store.js';
@@ -29,6 +30,7 @@ const USAGE = `Usage:
   turnback restore <turn|mark|snapshot> [--before-step <n>] [--path <p>...] [--dry-run | --yes] [--json]
   turnback undo | redo [--dry-run | --yes] [--json]
   turnback recover <file> [--dry-run | --yes] [--json]
+  turnback run [--label <text>] -- <command...>
   turnback export <turn...> [--out <file.patch>] | --commit [--message <text>]
   turnback report [--session <id>]
   turnback compare <turnA> <turnB> [--json]
@@ -82,11 +84,36 @@ function runRestore(store: Store, operation: Operation, args: Args): void {
     : args.positional[0];
   if (!target) throw new Error(operation === 'restore' ? 'Missing target turn or snapshot' : `Nothing to ${operation}`);
   const paths = args.paths.length ? args.paths : undefined;
-  applyPlan(store, operation, target, paths, planTitle(store, operation, target, args.positional[0], step), args);
+  const turn = operation === 'redo' ? undefined : store.findTurn(step !== undefined ? args.positional[0] ?? '' : target);
+  applyPlan(store, operation, target, paths, planTitle(store, operation, target, args.positional[0], step), args, isAgentTurn(turn));
+}
+
+const isAgentTurn = (turn?: Turn) => !!turn && turn.agent !== 'manual';
+
+/** `turnback run [--label <text>] -- <command...>`: record any command as one turn. */
+function runCommand(rest: string[]): void {
+  const split = rest.indexOf('--');
+  const own = parseArgs(split < 0 ? [] : rest.slice(0, split));
+  const argv = split < 0 ? rest : rest.slice(split + 1);
+  if (!argv.length) {
+    process.stderr.write('Usage: turnback run [--label <text>] -- <command...>\n');
+    process.exitCode = 2;
+    return;
+  }
+  const cwd = process.cwd();
+  const result = runAsTurn(cwd, argv, own.values.get('--label'));
+  const summary = changedFiles(cwd, result.turn);
+  const lines = [];
+  if (result.unprotected) lines.push(`turnback: the files before this command were not saved (${result.unprotected}); see turnback status.`);
+  if (summary) {
+    lines.push(`turnback: recorded as turn #${summary.index}: ${summary.files} ${summary.files === 1 ? 'file' : 'files'} changed. Undo with: turnback undo --yes`);
+  }
+  if (lines.length) process.stderr.write(lines.join('\n') + '\n');
+  process.exitCode = result.status;
 }
 
 /** Print a restore plan, then apply it when `--yes` is given. */
-function applyPlan(store: Store, operation: Operation, target: string, paths: string[] | undefined, title: string, args: Args): void {
+function applyPlan(store: Store, operation: Operation, target: string, paths: string[] | undefined, title: string, args: Args, agentTurn: boolean): void {
   const plan = planRestore(store, target, paths);
   const json = args.flags.has('--json');
   output(json
@@ -102,7 +129,7 @@ function applyPlan(store: Store, operation: Operation, target: string, paths: st
     output({ applied: result.applied, failed: result.failed, safety: result.safety });
     output('Agent conversation context is not restored; tell the agent what changed.');
   } else {
-    output(formatRestoreResult(result, operation));
+    output(formatRestoreResult(result, operation, agentTurn));
   }
   if (result.failed.length) process.exitCode = 1;
 }
@@ -129,6 +156,7 @@ function planTitle(store: Store, operation: Operation, target: string, requested
 
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
+  if (command === 'run') return runCommand(rest);
   const args = parseArgs(rest);
 
   if (command === 'hook') return runHook(args.positional[0] as Agent, args.positional[1]);
@@ -252,7 +280,7 @@ async function main(): Promise<void> {
       const from = found.turn ? describeTurn(found.turn)
         : mark ? `mark ${JSON.stringify(mark.label)}`
         : `the snapshot of ${formatTime(found.entry.time)}`;
-      applyPlan(store, 'restore', found.ref, [abs], `Recover ${store.workspace.relative(abs)} from ${from}`, args);
+      applyPlan(store, 'restore', found.ref, [abs], `Recover ${store.workspace.relative(abs)} from ${from}`, args, isAgentTurn(found.turn));
       return;
     }
     default:

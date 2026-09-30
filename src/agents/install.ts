@@ -5,10 +5,13 @@ import path from 'node:path';
 import type { Agent } from '../core/types.js';
 import { opencodePluginSource } from './opencode-plugin.js';
 
-const AGENTS: Agent[] = ['claude', 'codex', 'gemini', 'cursor', 'opencode', 'antigravity'];
+const AGENTS: Exclude<Agent, 'manual'>[] = ['claude', 'codex', 'gemini', 'cursor', 'opencode', 'antigravity'];
 /** Marks entries owned by Turnback, so reinstall and uninstall never touch other entries. */
 const MARKER = 'turnback:';
 const TOML_BLOCK = /\n?# turnback begin[\s\S]*?# turnback end\n?/g;
+
+/** Agents installed through a hook config file. */
+type HookAgent = Exclude<Agent, 'opencode' | 'manual'>;
 
 interface AgentSpec {
   /** Hook file, relative to home (user level) or the project root. */
@@ -27,7 +30,7 @@ interface AgentSpec {
   mcp: 'inline' | { file: (base: string, project: boolean) => string | undefined; format: 'json' | 'toml' };
 }
 
-const SPECS: Record<Exclude<Agent, 'opencode'>, AgentSpec> = {
+const SPECS: Record<HookAgent, AgentSpec> = {
   claude: {
     hooksFile: () => '.claude/settings.json',
     events: { SessionStart: '', UserPromptSubmit: '', PreToolUse: 'Bash|PowerShell|Edit|Write|MultiEdit|NotebookEdit', Stop: '' },
@@ -67,7 +70,7 @@ const SPECS: Record<Exclude<Agent, 'opencode'>, AgentSpec> = {
 };
 
 /** Hook event → tool matcher for one agent; the Claude Code plugin's hooks/hooks.json must match it. */
-export const hookEvents = (agent: Exclude<Agent, 'opencode'>) => SPECS[agent].events;
+export const hookEvents = (agent: HookAgent) => SPECS[agent].events;
 
 /** Install hooks and the MCP server. Other config is kept; calling again does not duplicate entries. */
 export function install(which: string, project: boolean, root: string, cli: string, withMcp = true): string[] {
@@ -162,7 +165,7 @@ function requireGit(): void {
   if (major < 2 || (major === 2 && minor < 25)) throw new Error('Git >= 2.25 is required');
 }
 
-function selectAgents(which: string): Agent[] {
+function selectAgents(which: string): Exclude<Agent, 'manual'>[] {
   const selected = which === 'all' ? AGENTS : AGENTS.filter(a => a === which);
   if (!selected.length) throw new Error(`Unknown agent: ${which}`);
   return selected;

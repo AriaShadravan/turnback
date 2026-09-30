@@ -192,3 +192,33 @@ it('recovers one deleted file through the CLI', () => {
   expect(none.status).toBe(1);
   expect(none.stdout).toContain('No snapshot has a version of never.txt');
 }, 30_000);
+
+it('records any command as a turn with turnback run, and undoes it', () => {
+  const p = tempProject('turnback-run-');
+  p.write('a.txt', 'a\n');
+  const run = cli(p.root, p.home, ['run', '--label', 'codegen', '--', process.execPath, '-e', "require('fs').rmSync('a.txt'); require('fs').writeFileSync('b.txt', 'b')"]);
+  expect(run.status).toBe(0);
+  expect(run.stderr).toMatch(/recorded as turn #1: 2 files changed/);
+  expect(existsSync(p.file('a.txt'))).toBe(false);
+
+  const list = JSON.parse(cli(p.root, p.home, ['list', '--json']).stdout);
+  expect(list).toHaveLength(1);
+  expect(list[0]).toMatchObject({ agent: 'manual', prompt: 'codegen', changedFiles: 2 });
+
+  const undo = cli(p.root, p.home, ['undo', '--yes']);
+  expect(undo.stdout).toMatch(/^Undo turn "codegen" \(manual, /);
+  expect(undo.stdout).not.toContain('conversation');
+  expect(p.read('a.txt')).toBe('a\n');
+  expect(existsSync(p.file('b.txt'))).toBe(false);
+}, 30_000);
+
+it('turnback run passes the exit code through and still records the turn', () => {
+  const p = tempProject('turnback-run-fail-');
+  p.write('a.txt', 'a\n');
+  const run = cli(p.root, p.home, ['run', '--', process.execPath, '-e', "require('fs').writeFileSync('a.txt', 'x'); process.exit(3)"]);
+  expect(run.status).toBe(3);
+  const list = JSON.parse(cli(p.root, p.home, ['list', '--json']).stdout);
+  expect(list[0]).toMatchObject({ agent: 'manual', changedFiles: 1 });
+  expect(list[0].prompt).toContain('process.exit(3)');
+  expect(cli(p.root, p.home, ['run']).status).toBe(2);
+}, 30_000);

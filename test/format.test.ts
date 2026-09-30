@@ -66,11 +66,12 @@ it('formats a restore plan with one line per file and a footer', () => {
 });
 
 it('formats a restore result with the way back', () => {
-  const undo = formatRestoreResult({ applied: ['a', 'b'], failed: [], safety: 'refs/turnback/s/x' }, 'undo');
+  const undo = formatRestoreResult({ applied: ['a', 'b'], failed: [], safety: 'refs/turnback/s/x' }, 'undo', true);
   expect(undo).toMatch(/^Restored 2 files\./);
   expect(undo).toContain('turnback redo --yes');
   expect(undo).toContain('conversation is not restored');
-  const failed = formatRestoreResult({ applied: ['a'], failed: ['b'], safety: 'refs/turnback/s/x' }, 'redo');
+  expect(formatRestoreResult({ applied: ['a'], failed: [], safety: 'r' }, 'restore', false)).not.toContain('conversation');
+  const failed = formatRestoreResult({ applied: ['a'], failed: ['b'], safety: 'refs/turnback/s/x' }, 'redo', false);
   expect(failed).toMatch(/^Restored 1 file\./);
   expect(failed).toContain('Failed: b');
   expect(failed).toContain('refs/turnback/s/x');

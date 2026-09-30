@@ -68,6 +68,8 @@ turnback redo --yes                 # changed your mind
 turnback steps <turn>               # each edit and shell command in a turn
 turnback restore <turn> --before-step 3 --yes
 turnback mark "before migration"    # a checkpoint of your own
+turnback run -- npm run codegen     # any command as an undoable turn, no agent needed
+turnback recover src/app.ts         # bring back one file an agent deleted turns ago
 turnback ui                         # timeline in the browser
 ```
 

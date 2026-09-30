@@ -6,7 +6,7 @@ export interface Args {
 }
 
 /** Flags that take a value. */
-const VALUE_FLAGS = new Set(['--before-step', '--port', '--message', '--out', '--session']);
+const VALUE_FLAGS = new Set(['--before-step', '--port', '--message', '--out', '--session', '--label']);
 
 /** Split argv into positionals, boolean flags, repeated `--path` values, and value flags. */
 export function parseArgs(argv: string[]): Args {

@@ -1,4 +1,5 @@
-export type Agent = 'claude' | 'codex' | 'gemini' | 'cursor' | 'opencode' | 'antigravity';
+/** `manual`: commands run through `turnback run`, not an agent hook. */
+export type Agent = 'claude' | 'codex' | 'gemini' | 'cursor' | 'opencode' | 'antigravity' | 'manual';
 
 /** Neutral event translated from each agent's hook payload. */
 export type HookKind = 'session-start' | 'turn-start' | 'edit' | 'shell' | 'turn-end';

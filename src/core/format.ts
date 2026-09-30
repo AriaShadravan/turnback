@@ -56,13 +56,13 @@ export function formatPlan(title: string, plan: Pick<RestorePlan, 'scope' | 'act
 }
 
 /** Outcome of an applied restore, with the way back. */
-export function formatRestoreResult(result: Pick<RestoreResult, 'applied' | 'failed' | 'safety'>, operation: Operation): string {
+export function formatRestoreResult(result: Pick<RestoreResult, 'applied' | 'failed' | 'safety'>, operation: Operation, agentTurn: boolean): string {
   const lines = [`Restored ${plural(result.applied.length, 'file')}.`];
   if (result.failed.length) lines.push(`Failed: ${result.failed.join(', ')}`);
   lines.push(operation === 'redo'
     ? `The files before this redo are kept in ${result.safety}.`
     : 'Changed your mind? Run: turnback redo --yes');
-  lines.push("The agent's conversation is not restored; tell the agent what changed.");
+  if (agentTurn) lines.push("The agent's conversation is not restored; tell the agent what changed.");
   return lines.join('\n');
 }
 
