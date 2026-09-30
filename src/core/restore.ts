@@ -80,8 +80,13 @@ function buildPlan(store: Store, target: string, selected?: string[]) {
   }
 
   const large = new Set(skippedLarge);
-  const lastEnd = entries.findLast(e => (e.kind === 'turn-end' || e.kind === 'post-restore') && e.ref)?.ref;
+  const lastEndIndex = entries.findLastIndex(e => (e.kind === 'turn-end' || e.kind === 'post-restore') && e.ref);
+  const lastEnd = entries[lastEndIndex]?.ref;
   const lastSeen = lastEnd ? store.repo.tree(lastEnd) : new Map<string, TreeItem>();
+  // Paths an edit tool changed since then belong to an agent turn that has not ended: its own work,
+  // not a manual edit. Shell commands name no paths, so what they change is still marked uncertain.
+  const agentEdited = new Set(entries.slice(lastEndIndex + 1).flatMap(e =>
+    e.agent !== 'turnback' && e.paths && (e.kind === 'edit' || e.kind === 'baseline') ? store.relativePaths(e.paths) : []));
   const current = new Map<string, FileState>();
   const actions: RestoreAction[] = [];
 
@@ -97,7 +102,7 @@ function buildPlan(store: Store, target: string, selected?: string[]) {
     actions.push({
       path: p,
       action: !want ? 'delete' : have ? 'modify' : 'create',
-      uncertain: !!seen && !!have && !sameFile(seen, have),
+      uncertain: !!seen && !!have && !sameFile(seen, have) && !agentEdited.has(p),
     });
   }
 

@@ -29,7 +29,7 @@ The journal is a list of entries. `Store.turns()` groups them by agent, session,
 
 `src/core/restore.ts`:
 
-1. `planRestore` compares the target snapshot with the current files and lists what would be created, reverted, or removed. Files that changed since Turnback's last snapshot are marked uncertain (probably edited by the user). The plan carries a token.
+1. `planRestore` compares the target snapshot with the current files and lists what would be created, reverted, or removed. Files that changed since the end of the last finished turn are marked uncertain (probably edited by the user), except paths an edit tool changed in a turn that has not ended yet: those are the running agent's own work. The plan carries a token.
 2. `applyRestore` checks the token again under the workspace lock, takes a **safety snapshot** of the current files, then writes the target content. `redo` restores that safety snapshot.
 
 The CLI shows the plan and needs `--yes`; the MCP `restore` tool returns the plan and a `confirm_token` and needs a second call.

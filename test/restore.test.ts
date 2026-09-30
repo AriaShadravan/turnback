@@ -141,3 +141,35 @@ describe('snapshot and restore', () => {
     expect(p.read('a.txt')).toBe('before');
   });
 });
+
+describe('files changed during a turn that has not ended', () => {
+  /** t1 is finished; t2 is still running. */
+  function runningTurn() {
+    p.write('a.txt', 'a0');
+    p.write('b.txt', 'b0');
+    p.write('c.txt', 'c0');
+    hook(p.root, 'edit', 't1', { paths: [p.file('a.txt')] });
+    p.write('a.txt', 'a1');
+    hook(p.root, 'turn-end', 't1');
+    hook(p.root, 'edit', 't2', { paths: [p.file('a.txt')] });
+    p.write('a.txt', 'a2');
+    return new Store(p.root);
+  }
+
+  it('does not mark files the running turn edited through an edit tool as manual edits', () => {
+    const s = runningTurn();
+    const plan = planRestore(s, 'codex:s:t2');
+    expect(plan.actions).toEqual([{ path: 'a.txt', action: 'modify', uncertain: false }]);
+    applyRestore(s, 'codex:s:t2', { token: plan.token, skipUncertain: true });
+    expect(p.read('a.txt')).toBe('a1');
+  });
+
+  it('still marks files changed by a shell command or by hand during the running turn', () => {
+    const s = runningTurn();
+    hook(p.root, 'shell', 't2', { command: 'echo b2 > b.txt' });
+    p.write('b.txt', 'b2');
+    p.write('c.txt', 'c-by-hand');
+    const marked = Object.fromEntries(planRestore(s, 'codex:s:t2').actions.map(a => [a.path, a.uncertain]));
+    expect(marked).toEqual({ 'a.txt': false, 'b.txt': true, 'c.txt': true });
+  });
+});
