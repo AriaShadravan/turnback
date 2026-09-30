@@ -9,6 +9,7 @@ import { parseArgs, type Args } from './args.js';
 import { exportCommit, exportPatch } from '../core/export.js';
 import { compareTurns } from '../core/compare.js';
 import { sessionReport } from '../core/report.js';
+import { formatStats, statsCard, turnStats } from '../core/stats.js';
 import { formatConfigFiles, formatMarks, formatPlan, formatRestoreResult, formatStatus, formatSteps, formatTime, formatTurns } from '../core/format.js';
 import { install, uninstall } from '../agents/install.js';
 import { shellArg } from '../core/quote.js';
@@ -33,6 +34,7 @@ const USAGE = `Usage:
   turnback run [--label <text>] -- <command...>
   turnback export <turn...> [--out <file.patch>] | --commit [--message <text>]
   turnback report [--session <id>]
+  turnback stats [--days <n>] [--json] [--svg <file>]
   turnback compare <turnA> <turnB> [--json]
   turnback ui [--port <n>] [--no-open]
   turnback mcp`;
@@ -250,6 +252,19 @@ async function main(): Promise<void> {
         `Both, different: ${c.both.join(', ') || '-'}`, `Both, same: ${c.same.join(', ') || '-'}`,
         '', c.patch,
       ].join('\n'));
+      return;
+    }
+    case 'stats': {
+      const days = Number(args.values.get('--days') ?? 7);
+      if (!Number.isInteger(days) || days < 1) throw new Error('--days must be a whole number of days, 1 or more');
+      const stats = turnStats(store, days);
+      const svg = args.values.get('--svg');
+      if (svg) {
+        writeFileSync(svg, statsCard(stats));
+        output(`Wrote ${svg}. Open it in a browser to share a screenshot.`);
+        return;
+      }
+      output(args.flags.has('--json') ? stats : formatStats(stats));
       return;
     }
     case 'report':

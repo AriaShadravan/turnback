@@ -222,3 +222,14 @@ it('turnback run passes the exit code through and still records the turn', () =>
   expect(list[0].prompt).toContain('process.exit(3)');
   expect(cli(p.root, p.home, ['run']).status).toBe(2);
 }, 30_000);
+
+it('prints stats and writes the share card', () => {
+  const p = tempProject('turnback-stats-cli-');
+  p.write('a.txt', 'a\n');
+  cli(p.root, p.home, ['run', '--', process.execPath, '-e', "require('fs').rmSync('a.txt')"]);
+  const text = cli(p.root, p.home, ['stats']);
+  expect(text.stdout).toMatch(/^Turns +1 +\(manual 1\)$/m);
+  expect(cli(p.root, p.home, ['stats', '--svg', 'card.svg']).status).toBe(0);
+  expect(p.read('card.svg')).toContain('Agents deleted 1 file this week.');
+  expect(cli(p.root, p.home, ['stats', '--days', '0']).status).toBe(2);
+}, 30_000);
