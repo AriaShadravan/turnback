@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { record } from '../src/core/recorder.js';
-import { sessionReport } from '../src/core/report.js';
+import { htmlReport, sessionReport } from '../src/core/report.js';
 import { Store } from '../src/core/store.js';
 import { tempProject } from './helpers.js';
 
@@ -34,4 +34,25 @@ it('says so when there is nothing to report', () => {
   const p = tempProject('turnback-report-empty-');
   expect(sessionReport(new Store(p.root))).toBe('No turns recorded yet.');
   expect(() => sessionReport(new Store(p.root), 'nope')).toThrow(/No turns in session nope/);
+});
+
+it('writes a self-contained HTML report with escaped text and diffs', () => {
+  const p = tempProject('turnback-report-html-');
+  p.write('a.txt', '0\n');
+  turn(p, 's1', 't1', 'Add <script>alert(1)</script>', () => p.write('b.txt', 'b\n'));
+  turn(p, 's1', 't2', 'Change a', () => p.write('a.txt', '2\n'));
+  const html = htmlReport(new Store(p.root));
+  expect(html).toMatch(/^<!doctype html>/);
+  expect(html).not.toContain('<script>alert(1)</script>');
+  expect(html).toContain('Add &lt;script&gt;alert(1)&lt;/script&gt;');
+  expect(html).toContain('<details>');
+  expect(html).toMatch(/class="add">\+2/);
+  expect(html).not.toMatch(/<(script|link)\b/);
+});
+
+it('cuts a long diff in the HTML report and says so', () => {
+  const p = tempProject('turnback-report-cut-');
+  turn(p, 's1', 't1', 'big', () => p.write('big.txt', 'x'.repeat(50) + '\n'));
+  const html = htmlReport(new Store(p.root), undefined, 20);
+  expect(html).toContain('Diff cut at 20 characters');
 });

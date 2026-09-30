@@ -19,7 +19,7 @@ Every command prints text for people. Where noted, `--json` prints the raw data 
 | `search <text> [--json]` | Turns whose prompt, command, or paths match. |
 | `mark <label>` / `marks [--json]` | Saves the whole workspace as a checkpoint that `restore <label>` returns to. |
 | `ui [--port <n>] [--no-open]` | Read-only timeline of turns, steps, and diffs in the browser. |
-| `report [--session <id>]` | Markdown summary of the latest session, for a PR description or an audit. |
+| `report [--session <id>] [--html [--out <file>]]` | Markdown summary of the latest session, for a PR description or an audit. `--html` writes a self-contained page with each turn's diff instead. |
 | `compare <a> <b> [--json]` | How two turns' results differ, for example two agents given the same task. |
 | `export <turn...> [--out <file>]` | Prints the turns as a patch, or writes it to a file. |
 | `export <turn...> --commit [--message <text>]` | Commits just those turns' files to your repository with the prompt as message, and refuses if they changed since. It is the only command that writes to your own git repository. |

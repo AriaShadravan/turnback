@@ -8,7 +8,7 @@ import { dataHome } from '../core/config.js';
 import { parseArgs, type Args } from './args.js';
 import { exportCommit, exportPatch } from '../core/export.js';
 import { compareTurns } from '../core/compare.js';
-import { sessionReport } from '../core/report.js';
+import { htmlReport, sessionOf, sessionReport } from '../core/report.js';
 import { formatStats, statsCard, turnStats } from '../core/stats.js';
 import { formatConfigFiles, formatMarks, formatPlan, formatRestoreResult, formatStatus, formatSteps, formatTime, formatTurns } from '../core/format.js';
 import { install, uninstall } from '../agents/install.js';
@@ -33,7 +33,7 @@ const USAGE = `Usage:
   turnback recover <file> [--dry-run | --yes] [--json]
   turnback run [--label <text>] -- <command...>
   turnback export <turn...> [--out <file.patch>] | --commit [--message <text>]
-  turnback report [--session <id>]
+  turnback report [--session <id>] [--html [--out <file>]]
   turnback stats [--days <n>] [--json] [--svg <file>]
   turnback compare <turnA> <turnB> [--json]
   turnback ui [--port <n>] [--no-open]
@@ -267,9 +267,16 @@ async function main(): Promise<void> {
       output(args.flags.has('--json') ? stats : formatStats(stats));
       return;
     }
-    case 'report':
-      output(sessionReport(store, args.values.get('--session')));
+    case 'report': {
+      const session = args.values.get('--session');
+      if (!args.flags.has('--html')) return output(sessionReport(store, session));
+      const html = htmlReport(store, session);
+      const id = session ?? sessionOf(store.turns()[0].id);
+      const out = args.values.get('--out') ?? `turnback-report-${id.replace(/[^\w.-]+/g, '_')}.html`;
+      writeFileSync(path.resolve(out), html);
+      output(`Wrote ${out}`);
       return;
+    }
     case 'diff': {
       const id = args.positional[0];
       if (!id) throw new Error('Missing turn id');

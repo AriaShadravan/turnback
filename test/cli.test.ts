@@ -233,3 +233,14 @@ it('prints stats and writes the share card', () => {
   expect(p.read('card.svg')).toContain('Agents deleted 1 file this week.');
   expect(cli(p.root, p.home, ['stats', '--days', '0']).status).toBe(2);
 }, 30_000);
+
+it('writes the session report as HTML', () => {
+  const p = tempProject('turnback-report-cli-');
+  p.write('a.txt', 'a\n');
+  cli(p.root, p.home, ['run', '--label', 'edit a', '--', process.execPath, '-e', "require('fs').writeFileSync('a.txt', 'b')"]);
+  const r = cli(p.root, p.home, ['report', '--html', '--out', 'r.html']);
+  expect(r.stdout).toBe('Wrote r.html\n');
+  expect(p.read('r.html')).toContain('<h2>1. edit a</h2>');
+  const auto = cli(p.root, p.home, ['report', '--html']);
+  expect(auto.stdout).toBe('Wrote turnback-report-run.html\n');
+}, 30_000);
