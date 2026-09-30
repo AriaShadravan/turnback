@@ -74,6 +74,12 @@ turnback blame src/auth.ts          # which turn and prompt wrote each line
 turnback ui                         # timeline in the browser
 ```
 
+### Without an agent
+
+`turnback run` records any command as a turn, so a code generator, a codemod, or an agent without hooks gets the same undo. `blame` shows which turn wrote each line, and `recover` brings back a single file:
+
+![turnback run records a code generator; blame shows its lines; recover brings back the file it deleted](docs/demo-cli.gif)
+
 All commands, including `log`, `search`, `report`, `compare`, and `export`: [commands](guide/COMMANDS.md). More: [restore](guide/RESTORE.md), [MCP](guide/MCP.md), [scope and limits](guide/LIMITS.md).
 
 

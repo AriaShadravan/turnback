@@ -91,6 +91,45 @@ def record_session(work: Path) -> dict[str, str]:
     return out
 
 
+CODEGEN = """import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+const [header] = readFileSync('src/api.ts', 'utf8').split('\\n');
+writeFileSync('src/api.ts', `${header}
+export const getUser = (id) => fetch(\\`/users/\\${id}\\`);
+export const listUsers = () => fetch('/users');
+`);
+rmSync('src/legacy.ts');
+"""
+
+
+def record_cli_session(work: Path) -> dict[str, str]:
+    """No agent: a code generator run through `turnback run`, then blame and recover."""
+    project, home = work / "my-app", work / "home"
+    (project / "src").mkdir(parents=True)
+    (project / "scripts").mkdir()
+    home.mkdir()
+    env = {**os.environ, "TURNBACK_HOME": str(home)}
+    files = {
+        "src/api.ts": "// API client, keep this header\nexport const getUser = (id) => fetch('/user?id=' + id);\n",
+        "src/legacy.ts": "export const oldAuth = () => true;\n",
+        "scripts/codegen.mjs": CODEGEN,
+    }
+    for name, text in files.items():
+        (project / name).write_text(text, encoding="utf-8", newline="\n")
+    run(["git", "init", "-q"], project, env)
+
+    def cli(*args: str) -> str:
+        result = subprocess.run(["node", str(CLI), *args], cwd=project, env=env, capture_output=True, text=True, encoding="utf-8")
+        if result.returncode != 0:
+            sys.exit(f"turnback {' '.join(args)} failed:\n{result.stderr}")
+        return (result.stdout + result.stderr).rstrip("\n")
+
+    return {
+        "run": cli("run", "--label", "codegen", "--", "node", "scripts/codegen.mjs"),
+        "blame": cli("blame", "src/api.ts"),
+        "recover": cli("recover", "src/legacy.ts", "--yes"),
+    }
+
+
 # ---- Rendering --------------------------------------------------------------
 
 def load_font(explicit: str | None, size: int) -> ImageFont.FreeTypeFont:
@@ -136,6 +175,19 @@ def build_script(o: dict[str, str]) -> list[tuple[str, object, int]]:
     return steps
 
 
+def build_cli_script(o: dict[str, str]) -> list[tuple[str, object, int]]:
+    plain = lambda text, color=FG: [[(line, color)] for line in text.split("\n")]
+    highlight = lambda text: [[(l, ACCENT if l.startswith(("Restored", "turnback: recorded")) else FG)] for l in text.split("\n")]
+    return [
+        ("type", "turnback run --label codegen -- node scripts/codegen.mjs", 300),
+        ("show", highlight(o["run"]), 1500),
+        ("type", "turnback blame src/api.ts", 300),
+        ("show", plain(o["blame"]), 2600),
+        ("type", "turnback recover src/legacy.ts --yes", 300),
+        ("show", highlight(o["recover"]), 3000),
+    ]
+
+
 class Terminal:
     def __init__(self, font: ImageFont.FreeTypeFont, cols: int, rows: int, title: str):
         self.font, self.cols, self.rows, self.title = font, cols, rows, title
@@ -165,8 +217,8 @@ class Terminal:
         return img
 
 
-def render_gif(o: dict[str, str], font: ImageFont.FreeTypeFont, path: Path) -> None:
-    term = Terminal(font, cols=92, rows=22, title="~/my-app")
+def render_gif(steps: list[tuple[str, object, int]], font: ImageFont.FreeTypeFont, path: Path, rows: int = 22) -> None:
+    term = Terminal(font, cols=92, rows=rows, title="~/my-app")
     frames: list[Image.Image] = []
     durations: list[int] = []
 
@@ -174,7 +226,7 @@ def render_gif(o: dict[str, str], font: ImageFont.FreeTypeFont, path: Path) -> N
         frames.append(img)
         durations.append(ms)
 
-    for kind, payload, pause in build_script(o):
+    for kind, payload, pause in steps:
         if kind == "type":
             command = str(payload)
             add(term.frame([("$ ", PROMPT)], cursor=True), 350)
@@ -233,10 +285,13 @@ def main() -> None:
     DOCS.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="turnback-demo-", ignore_cleanup_errors=True) as tmp:
         output = record_session(Path(tmp))
+    with tempfile.TemporaryDirectory(prefix="turnback-demo-cli-", ignore_cleanup_errors=True) as tmp:
+        cli_output = record_cli_session(Path(tmp))
     font = load_font(args.font, 17)
-    render_gif(output, font, DOCS / "demo.gif")
+    render_gif(build_script(output), font, DOCS / "demo.gif")
+    render_gif(build_cli_script(cli_output), font, DOCS / "demo-cli.gif", rows=16)
     render_social(output, args.font, DOCS / "social-preview.png")
-    for name in ("demo.gif", "social-preview.png"):
+    for name in ("demo.gif", "demo-cli.gif", "social-preview.png"):
         print(f"{name}: {(DOCS / name).stat().st_size // 1024} kB")
 
 
