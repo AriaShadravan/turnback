@@ -2,7 +2,7 @@
 
 `node dist/cli.js mcp` runs a stdio server. `install` registers it for the selected agents. This process's stdout carries only the MCP protocol.
 
-Read tools: `list_turns`, `diff_turn`, `turn_steps`, `status`. Write tools: `restore`, `redo`. All accept an optional `workspace`. `restore` takes a `target` (turn ID, mark label, or snapshot ref such as a step `ref` from `turn_steps`) and optional `paths`; `redo` uses the safety snapshot of the last restore. The first call without `token` returns a plan and a `confirm_token`. The second call sends that token as `token`. The server rechecks the plan under the lock before writing.
+Read tools: `list_turns`, `diff_turn`, `turn_steps`, `file_history`, `search_turns`, `diff_range`, `session_report`, `compare_turns`, `status`. `diff_range` shows what changed from a turn start, mark, or ref to another point, or to the current files when `to` is omitted; for that it takes an internal snapshot that gc removes after a day. No MCP tool writes to the user's git repository. Write tools: `restore`, `redo`. All accept an optional `workspace`. `restore` takes a `target` (turn ID, mark label, or snapshot ref such as a step `ref` from `turn_steps`) and optional `paths`; `redo` uses the safety snapshot of the last restore. The first call without `token` returns a plan and a `confirm_token`. The second call sends that token as `token`. The server rechecks the plan under the lock before writing.
 
 ```json
 {"name":"restore","arguments":{"target":"<turn-id>","workspace":"/path/to/project"}}

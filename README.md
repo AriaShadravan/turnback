@@ -11,7 +11,7 @@ claude plugin marketplace add MFaizR77/turnback
 claude plugin install turnback@turnback
 ```
 
-Then use `/turnback:turns`, `/turnback:diff-turn`, and `/turnback:undo`. For other agents, or to use the CLI directly:
+Then use `/turnback:turns`, `/turnback:diff-turn`, `/turnback:undo`, and `/turnback:report`. For other agents, or to use the CLI directly:
 
 ```bash
 npm install -g turnback
@@ -25,11 +25,16 @@ turnback restore <turn-id> --before-step 3 --dry-run
 turnback log src/app.ts
 turnback mark "before migration"
 turnback ui
+turnback search login
+turnback report
+turnback compare <turn-a> <turn-b>
+turnback export <turn-id> --out turn.patch
+turnback export <turn-id> --commit
 ```
 
 `install all` without `--project` installs the user-level config. `uninstall all [--project]` removes only Turnback entries. `--no-mcp` installs hooks without MCP. Other config is kept.
 
-Available commands: `install`, `uninstall`, `list`, `steps`, `log`, `diff`, `status`, `restore`, `undo`, `redo`, `mark`, `marks`, `ui`, `gc`, and `mcp`. `steps <turn>` lists each edit and shell command of a turn; `restore <turn> --before-step N` returns to just before step N and keeps the earlier steps. `log <file|folder>` lists the turns that changed it. `mark <label>` saves the whole workspace as a checkpoint that `restore <label>` returns to. `ui` opens a read-only timeline of turns, steps, and diffs in the browser. `restore <turn> --path <file> --dry-run` shows the plan. `--yes` applies it. `redo --yes` returns to the safety snapshot taken before the last restore. Restoring changes project files; the agent's conversation context is not restored. `list` shows each turn's prompt, agent, and changed files; `list --json` prints the raw data. Set `{"prompts": false}` in `~/.turnback/config.json` to stop recording prompts.
+Available commands: `install`, `uninstall`, `list`, `steps`, `log`, `search`, `diff`, `status`, `restore`, `undo`, `redo`, `mark`, `marks`, `report`, `compare`, `export`, `ui`, `gc`, and `mcp`. `search <text>` finds turns by prompt, command, or path. `report` writes a markdown summary of the latest session (`--session <id>` for another). `compare <a> <b>` shows how two turns' results differ, for example two agents given the same task. `export <turn...>` prints a patch (`--out` writes it to a file); `export --commit` commits just those turns' files to your repository with the prompt as message, and refuses if they changed since. It is the only command that writes to your own git repository. `steps <turn>` lists each edit and shell command of a turn; `restore <turn> --before-step N` returns to just before step N and keeps the earlier steps. `log <file|folder>` lists the turns that changed it. `mark <label>` saves the whole workspace as a checkpoint that `restore <label>` returns to. `ui` opens a read-only timeline of turns, steps, and diffs in the browser. `restore <turn> --path <file> --dry-run` shows the plan. `--yes` applies it. `redo --yes` returns to the safety snapshot taken before the last restore. Restoring changes project files; the agent's conversation context is not restored. `list` shows each turn's prompt, agent, and changed files; `list --json` prints the raw data. Set `{"prompts": false}` in `~/.turnback/config.json` to stop recording prompts.
 
 Documentation: [installation](guide/INSTALL.md), [restore](guide/RESTORE.md), [MCP](guide/MCP.md), and [scope](guide/LIMITS.md).
 

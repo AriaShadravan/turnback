@@ -19,3 +19,9 @@ MCP tokens are bound to the target, the selected paths, and a hash of the worksp
 ## File history and UI
 
 `turnback log <file|folder>` lists the turns whose changes include that path, newest first. `turnback ui` serves a read-only timeline on 127.0.0.1 under a random URL token and opens it in the browser (`--no-open` only prints the URL, `--port` picks the port). It never changes files; it shows the CLI command for each restore instead.
+
+## Export and compare
+
+`turnback export <turn...>` prints one patch from the oldest turn's baseline to the newest turn's end, limited to the files those turns changed; `--out <file>` writes it to a file for `git apply`. `turnback export <turn...> --commit` commits those files to your own repository with the prompt as message (`--message` overrides it). Only those paths are committed, so anything else you staged stays staged; files your repository ignores, such as `.env`, are skipped and listed; and the command refuses when a file no longer matches the newest turn's result. This is the only Turnback command that writes to your git repository.
+
+`turnback compare <a> <b>` compares the results of two turns on the files either of them changed: changed only by one, by both with different results, or by both with the same result, followed by the diff from A to B.

@@ -6,7 +6,7 @@ import { hookEvents } from '../src/agents/install.js';
 
 const json = (file: string) => JSON.parse(readFileSync(file, 'utf8'));
 const HOOK_COMMAND = 'node "${CLAUDE_PLUGIN_ROOT}/dist/cli.js" hook claude';
-const SKILLS = ['undo', 'turns', 'diff-turn'];
+const SKILLS = ['undo', 'turns', 'diff-turn', 'report'];
 
 it('keeps every version in sync', () => {
   const version = json('package.json').version;
