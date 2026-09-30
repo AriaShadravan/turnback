@@ -1,4 +1,6 @@
-import type { TurnSummary } from './store.js';
+import path from 'node:path';
+import type { Operation, RestorePlan, RestoreResult } from './restore.js';
+import type { Store, TurnSummary } from './store.js';
 import type { Mark, Step } from './types.js';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -34,4 +36,68 @@ export function formatSteps(steps: Step[]): string {
 export function formatMarks(marks: Mark[]): string {
   if (!marks.length) return 'No marks yet. Create one with `turnback mark <label>`.';
   return marks.map((m, i) => `#${i + 1} ${formatTime(m.time)}  ${JSON.stringify(m.label)}\n   ${m.ref}`).join('\n');
+}
+
+const ACTION_WORD = { create: 'restore', modify: 'revert', delete: 'remove' } as const;
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/** A restore plan for people: a title line, one line per file, then a count unless the result follows. */
+export function formatPlan(title: string, plan: Pick<RestorePlan, 'scope' | 'actions' | 'skippedLarge'>, applying = false): string {
+  const lines = [title];
+  if (plan.scope === 'recorded-paths') lines.push('(edits-only mode: only paths recorded by edit tools are restored)');
+  for (const a of plan.actions) {
+    const note = a.uncertain ? "  (changed since Turnback's last snapshot, maybe by you)" : '';
+    lines.push(`  ${ACTION_WORD[a.action].padEnd(8)} ${a.path}${note}`);
+  }
+  if (plan.skippedLarge.length) lines.push(`Skipped, over 5 MB: ${plan.skippedLarge.join(', ')}`);
+  if (!plan.actions.length) lines.push('Nothing to change.');
+  else if (!applying) lines.push(`${plural(plan.actions.length, 'file')} would change.`);
+  return lines.join('\n');
+}
+
+/** Outcome of an applied restore, with the way back. */
+export function formatRestoreResult(result: Pick<RestoreResult, 'applied' | 'failed' | 'safety'>, operation: Operation): string {
+  const lines = [`Restored ${plural(result.applied.length, 'file')}.`];
+  if (result.failed.length) lines.push(`Failed: ${result.failed.join(', ')}`);
+  lines.push(operation === 'redo'
+    ? `The files before this redo are kept in ${result.safety}.`
+    : 'Changed your mind? Run: turnback redo --yes');
+  lines.push("The agent's conversation is not restored; tell the agent what changed.");
+  return lines.join('\n');
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  const units = ['kB', 'MB', 'GB'];
+  let v = n / 1024, i = 0;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return `${v.toFixed(1)} ${units[i]}`;
+}
+
+/** `turnback status` as aligned fields; details stay in `--json`. */
+export function formatStatus(s: ReturnType<Store['status']>): string {
+  const problems = [
+    s.skippedFiles.length ? `${plural(s.skippedFiles.length, 'file')} skipped` : '',
+    s.failures.length ? `${plural(s.failures.length, 'failed or unprotected snapshot')}` : '',
+    s.corrupt.length ? `${plural(s.corrupt.length, 'corrupt shadow repo')} moved aside` : '',
+  ].filter(Boolean);
+  const rows: [string, string][] = [
+    ['Workspace', s.workspace],
+    ['Mode', s.mode],
+    ['Turns', String(s.turns)],
+    ['Storage', `${formatBytes(s.storageBytes)} in ${s.storage}`],
+    ['Last gc', s.lastGc ? formatTime(s.lastGc) : 'never'],
+    ['Problems', problems.length ? `${problems.join(', ')} (details: turnback status --json)` : 'none'],
+  ];
+  return rows.map(([k, v]) => `${k.padEnd(10)}${v}`).join('\n');
+}
+
+/** Config files written or cleaned by install/uninstall, relative to `cwd` when inside it. */
+export function formatConfigFiles(heading: string, files: string[], cwd: string): string {
+  if (!files.length) return `${heading}: nothing to change.`;
+  const shown = files.map(f => {
+    const rel = path.relative(cwd, f);
+    return rel && !rel.startsWith('..') && !path.isAbsolute(rel) ? rel.replaceAll('\\', '/') : f;
+  });
+  return `${heading}:\n${shown.map(f => `  ${f}`).join('\n')}`;
 }

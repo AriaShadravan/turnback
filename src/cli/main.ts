@@ -9,7 +9,7 @@ import { parseArgs, type Args } from './args.js';
 import { exportCommit, exportPatch } from '../core/export.js';
 import { compareTurns } from '../core/compare.js';
 import { sessionReport } from '../core/report.js';
-import { formatMarks, formatSteps, formatTurns } from '../core/format.js';
+import { formatConfigFiles, formatMarks, formatPlan, formatRestoreResult, formatStatus, formatSteps, formatTime, formatTurns } from '../core/format.js';
 import { install, uninstall } from '../agents/install.js';
 import { shellArg } from '../core/quote.js';
 import { pendingForeignRoots, record } from '../core/recorder.js';
@@ -20,14 +20,14 @@ import type { Agent, HookEvent } from '../core/types.js';
 
 const USAGE = `Usage:
   turnback install|uninstall <claude|codex|gemini|cursor|opencode|antigravity|all> [--project] [--no-mcp]
-  turnback list [--json] | status | gc
+  turnback list [--json] | status [--json] | gc
   turnback steps <turn> [--json]
   turnback log <file|folder> [--json]
   turnback search <text> [--json]
   turnback diff <turn>
   turnback mark <label> | marks [--json]
-  turnback restore <turn|mark|snapshot> [--before-step <n>] [--path <p>...] [--dry-run | --yes]
-  turnback undo | redo [--dry-run | --yes]
+  turnback restore <turn|mark|snapshot> [--before-step <n>] [--path <p>...] [--dry-run | --yes] [--json]
+  turnback undo | redo [--dry-run | --yes] [--json]
   turnback export <turn...> [--out <file.patch>] | --commit [--message <text>]
   turnback report [--session <id>]
   turnback compare <turnA> <turnB> [--json]
@@ -39,6 +39,9 @@ const CLI = fileURLToPath(import.meta.url);
 function output(value: unknown): void {
   process.stdout.write(typeof value === 'string' ? value + '\n' : JSON.stringify(value, null, 2) + '\n');
 }
+
+const configFiles = (args: Args, heading: string, files: string[]) =>
+  args.flags.has('--json') ? files : formatConfigFiles(heading, files, process.cwd());
 
 /** Hook entry point: always answers "allow", whatever happens while recording. */
 async function runHook(agent: Agent, eventName?: string): Promise<void> {
@@ -79,16 +82,39 @@ function runRestore(store: Store, operation: Operation, args: Args): void {
   if (!target) throw new Error(operation === 'restore' ? 'Missing target turn or snapshot' : `Nothing to ${operation}`);
   const paths = args.paths.length ? args.paths : undefined;
   const plan = planRestore(store, target, paths);
-  output({ target, scope: plan.scope, actions: plan.actions, skippedLarge: plan.skippedLarge });
+  const json = args.flags.has('--json');
+  output(json
+    ? { target, scope: plan.scope, actions: plan.actions, skippedLarge: plan.skippedLarge }
+    : formatPlan(planTitle(store, operation, target, args.positional[0], step), plan, args.flags.has('--yes') && !args.flags.has('--dry-run')));
   if (args.flags.has('--dry-run')) return;
   if (!args.flags.has('--yes')) {
     output('Use --yes to apply this plan.');
     return;
   }
   const result = applyRestore(store, target, { paths, token: plan.token, operation });
-  output({ applied: result.applied, failed: result.failed, safety: result.safety });
-  output('Agent conversation context is not restored; tell the agent what changed.');
+  if (json) {
+    output({ applied: result.applied, failed: result.failed, safety: result.safety });
+    output('Agent conversation context is not restored; tell the agent what changed.');
+  } else {
+    output(formatRestoreResult(result, operation));
+  }
   if (result.failed.length) process.exitCode = 1;
+}
+
+/** First line of a restore plan: what is being undone, named by its prompt when there is one. */
+function planTitle(store: Store, operation: Operation, target: string, requested?: string, step?: string): string {
+  const describe = (id: string) => {
+    const turn = store.findTurn(id);
+    if (!turn) return undefined;
+    const prompt = turn.entries.find(e => e.kind === 'turn-start')?.prompt;
+    return `turn ${prompt ? JSON.stringify(prompt) : turn.id} (${turn.agent}, ${formatTime(turn.time)})`;
+  };
+  if (operation === 'undo') return `Undo ${describe(target) ?? target}`;
+  if (operation === 'redo') return 'Redo: return to the files as they were before the last restore';
+  if (step !== undefined && requested) return `Restore ${describe(requested) ?? requested} to just before step ${step}`;
+  const turn = describe(target);
+  if (turn) return `Restore to the start of ${turn}`;
+  return store.marks().some(m => m.label === target) ? `Restore to mark ${JSON.stringify(target)}` : `Restore to ${target}`;
 }
 
 async function main(): Promise<void> {
@@ -105,11 +131,12 @@ async function main(): Promise<void> {
       store.gcIfDue();
       return;
     case 'install':
-      output(install(args.positional[0] ?? 'all', args.flags.has('--project'), store.root, CLI, !args.flags.has('--no-mcp')));
+      output(configFiles(args, 'Installed Turnback in',
+        install(args.positional[0] ?? 'all', args.flags.has('--project'), store.root, CLI, !args.flags.has('--no-mcp'))));
       warmInBackground(store.root);
       return;
     case 'uninstall':
-      output(uninstall(args.positional[0] ?? 'all', args.flags.has('--project'), store.root));
+      output(configFiles(args, 'Removed Turnback from', uninstall(args.positional[0] ?? 'all', args.flags.has('--project'), store.root)));
       return;
     case 'list': {
       const turns = store.turns().map(t => store.summarize(t));
@@ -117,7 +144,7 @@ async function main(): Promise<void> {
       return;
     }
     case 'status':
-      output(store.status());
+      output(args.flags.has('--json') ? store.status() : formatStatus(store.status()));
       return;
     case 'gc':
       output(store.gc());

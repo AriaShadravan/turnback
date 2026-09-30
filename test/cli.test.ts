@@ -70,10 +70,16 @@ it('undoes a destructive shell turn end to end through the CLI', () => {
 
   const dry = cli(p.root, p.home, ['undo', '--dry-run']);
   expect(dry.status).toBe(0);
+  expect(dry.stdout).toMatch(/^Undo turn "clean up" \(claude, /);
+  expect(dry.stdout).toMatch(/^ {2}restore +src\/app\.ts$/m);
+  expect(dry.stdout).toMatch(/^ {2}remove +junk\.txt$/m);
+  expect(JSON.parse(cli(p.root, p.home, ['undo', '--dry-run', '--json']).stdout).actions).toHaveLength(3);
   expect(existsSync(p.file('src/app.ts'))).toBe(false);
 
   const undo = cli(p.root, p.home, ['undo', '--yes']);
   expect(undo.status).toBe(0);
+  expect(undo.stdout).toContain('Restored 3 files.');
+  expect(undo.stdout).toContain('turnback redo --yes');
   expect(p.read('src/app.ts')).toBe('export const app = 1;\n');
   expect(p.read('.env')).toBe('SECRET=1\n');
   expect(existsSync(p.file('junk.txt'))).toBe(false);
@@ -151,4 +157,14 @@ it('lists steps and restores to just before one', () => {
   const bad = cli(p.root, p.home, ['restore', 't', '--before-step', '9', '--yes']);
   expect(bad.status).toBe(2);
   expect(bad.stderr).toContain('has 2 steps');
+}, 30_000);
+
+it('prints status and install results as text, with --json for the raw data', () => {
+  const p = tempProject('turnback-text-');
+  p.write('a.txt', 'x');
+  const installed = cli(p.root, p.home, ['install', 'claude', '--project', '--no-mcp']);
+  expect(installed.stdout).toBe('Installed Turnback in:\n  .claude/settings.json\n');
+  expect(cli(p.root, p.home, ['status']).stdout).toMatch(/^Turns +0$/m);
+  expect(JSON.parse(cli(p.root, p.home, ['status', '--json']).stdout).turns).toBe(0);
+  expect(cli(p.root, p.home, ['uninstall', 'claude', '--project']).stdout).toMatch(/^Removed Turnback from:\n {2}\.claude\/settings\.json/);
 }, 30_000);
