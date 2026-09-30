@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { isInside, promptLabel, WARM_WAIT_MS, workspaceRoot, workspaceRootForFile } from './config.js';
 import { turnKey } from './journal.js';
+import { waitForUnlock } from './lock.js';
 import { originFields, Store } from './store.js';
 import type { Entry, HookEvent } from './types.js';
 
@@ -59,6 +60,7 @@ function recordIn(store: Store, event: HookEvent): Entry | undefined {
 
 function recordChange(store: Store, event: HookEvent, turn: Entry[]): Entry {
   const origin = originFields(event);
+  if (!turn.some(e => e.kind === 'baseline' && e.status === 'ok')) decideMode(store);
   const editsOnly = store.mode() === 'edits-only';
 
   if (editsOnly && (event.kind === 'shell' || !event.paths?.length)) {
@@ -73,6 +75,16 @@ function recordChange(store: Store, event: HookEvent, turn: Entry[]): Entry {
     return store.snapshot('edit', origin, [...(previous?.paths ?? []), ...(event.paths ?? [])]);
   }
   return store.snapshot(event.kind, origin);
+}
+
+/**
+ * Before a turn's first change the mode must be known: wait for a warm that is still deciding it,
+ * and decide it now if this workspace was never warmed. Otherwise a workspace above the edits-only
+ * limit would get a full snapshot inside the hook.
+ */
+function decideMode(store: Store): void {
+  waitForUnlock(store.dir, WARM_WAIT_MS);
+  if (store.mode() === 'full' && !store.latestRef()) store.warm();
 }
 
 function takeBaseline(store: Store, event: HookEvent, editsOnly: boolean): Entry {

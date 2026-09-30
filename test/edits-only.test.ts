@@ -65,3 +65,26 @@ it('keeps earlier turns restorable across later edits', () => {
   expect(p.read('a.txt')).toBe('a0');
   expect(p.read('c.txt')).toBe('c0');
 });
+
+it('decides the mode before the first change of a workspace that was never warmed', () => {
+  // No warm ran: the first edit must not take a full snapshot of a workspace above the limit.
+  expect(hook(p.root, 'edit', 't1', { paths: [p.file('a.txt')] })?.status).toBe('ok');
+  const s = new Store(p.root);
+  expect(s.mode()).toBe('edits-only');
+  const baseline = s.entries().find(e => e.kind === 'baseline' && e.status === 'ok')!;
+  expect([...s.repo.tree(baseline.ref!).keys()]).toEqual(['a.txt']);
+  expect(hook(p.root, 'shell', 't1', { command: 'rm -rf .' })?.status).toBe('unprotected');
+});
+
+it('stops scanning once the workspace is known to be over the limit', () => {
+  const scan = new Store(p.root).workspace.scan({ files: 2, bytes: Infinity });
+  expect(scan.truncated).toBe(true);
+  expect(scan.paths).toHaveLength(3);
+  expect(new Store(p.root).workspace.scan().truncated).toBeUndefined();
+});
+
+it('keeps an edits-only decision without scanning again', () => {
+  const s = new Store(p.root);
+  s.warm();
+  expect(s.warm().note).toMatch(/already/);
+});

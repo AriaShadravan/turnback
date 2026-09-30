@@ -10,6 +10,8 @@ export interface Scan {
   /** Files over the size limit or unreadable. */
   skipped: string[];
   bytes: number;
+  /** Set when the scan stopped early at a limit, so `paths` and `bytes` are incomplete. */
+  truncated?: true;
 }
 
 export interface FileState {
@@ -63,11 +65,14 @@ export class Workspace {
     try { return lstatSync(this.abs(rel)); } catch { return undefined; }
   }
 
-  scan(): Scan {
+  /** Files in scope. With `stopAfter`, stops as soon as the file count or total size goes over it. */
+  scan(stopAfter?: { files: number; bytes: number }): Scan {
     const result: Scan = { paths: [], skipped: [], bytes: 0 };
+    const over = () => !!stopAfter && (result.paths.length > stopAfter.files || result.bytes > stopAfter.bytes);
     const visit = (dir: string) => {
       const items = readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
       for (const item of items) {
+        if (over()) return;
         const abs = path.join(dir, item.name);
         const rel = path.relative(this.root, abs).split(path.sep).join('/');
         if (this.excluded(rel)) continue;
@@ -86,6 +91,7 @@ export class Workspace {
       }
     };
     visit(this.root);
+    if (over()) result.truncated = true;
     return result;
   }
 

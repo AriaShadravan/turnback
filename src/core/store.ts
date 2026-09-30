@@ -188,13 +188,20 @@ export class Store {
   /** The expensive first snapshot, run in the background on install and session start. */
   warm(): Entry {
     try {
-      const scan = this.workspace.scan();
-      if (Store.modeFor(scan) === 'edits-only') {
-        mkdirSync(this.dir, { recursive: true });
-        writeFileSync(this.modeFile, JSON.stringify({ mode: 'edits-only' }));
-        return this.log({ ...WARM_ORIGIN, kind: 'warm', status: 'ok', note: 'edits-only mode; shell commands are not snapshotted' });
-      }
-      return this.locked(() => this.snapshotLocked('warm', WARM_ORIGIN));
+      // The lock is held while the mode is decided, so a hook waiting for warm never scans or
+      // snapshots the workspace a second time. The scan stops at the edits-only limit, which also
+      // bounds how long the lock is held.
+      return this.locked(() => {
+        if (this.mode() === 'edits-only') {
+          return this.log({ ...WARM_ORIGIN, kind: 'warm', status: 'ok', note: 'edits-only mode already decided' });
+        }
+        if (Store.modeFor(this.workspace.scan({ files: editsOnlyFiles(), bytes: EDITS_ONLY_BYTES })) === 'edits-only') {
+          mkdirSync(this.dir, { recursive: true });
+          writeFileSync(this.modeFile, JSON.stringify({ mode: 'edits-only' }));
+          return this.log({ ...WARM_ORIGIN, kind: 'warm', status: 'ok', note: 'edits-only mode; shell commands are not snapshotted' });
+        }
+        return this.snapshotLocked('warm', WARM_ORIGIN);
+      });
     } catch (e) {
       return this.log({ ...WARM_ORIGIN, kind: 'warm', status: 'failed', note: String(e) });
     }
