@@ -60,3 +60,20 @@ it('writes patches that git apply accepts whatever the user global git config sa
     process.env.GIT_CONFIG_GLOBAL = before;
   }
 });
+
+it('diffs two blobs into line hunks, ignoring CR at end of line', () => {
+  const p = tempProject('turnback-hunks-');
+  const repo = new Store(p.root).repo;
+  repo.init();
+  const a = repo.writeBlob(Buffer.from('one\ntwo\nthree\n'));
+  const b = repo.writeBlob(Buffer.from('ONE\ntwo\nthree\nfour\n'));
+  expect(repo.lineHunks(a, a)).toEqual([]);
+  expect(repo.lineHunks(a, b)).toEqual([
+    { oldStart: 1, oldCount: 1, newStart: 1, newCount: 1 },
+    { oldStart: 3, oldCount: 0, newStart: 4, newCount: 1 },
+  ]);
+  const crlf = repo.writeBlob(Buffer.from('one\r\ntwo\r\nthree\r\n'));
+  expect(repo.lineHunks(a, crlf)).toEqual([]);
+  const bin = repo.writeBlob(Buffer.from([0, 1, 2, 0]));
+  expect(repo.lineHunks(a, bin)).toBeUndefined();
+});

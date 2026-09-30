@@ -11,6 +11,14 @@ export interface NameStatus {
   path: string;
 }
 
+/** One `@@ -oldStart,oldCount +newStart,newCount @@` hunk of a zero-context diff. */
+export interface Hunk {
+  oldStart: number;
+  oldCount: number;
+  newStart: number;
+  newCount: number;
+}
+
 export interface TreeItem {
   oid: string;
   mode: string;
@@ -183,6 +191,24 @@ export class ShadowRepo {
     const r = spawnSync('git', [`--git-dir=${this.gitDir}`, 'cat-file', 'blob', oid], { timeout: 30_000, maxBuffer: MAX_FILE_BYTES + 1024, windowsHide: true });
     if (r.status !== 0) throw new Error(`git cat-file: ${String(r.stderr).trim()}`);
     return r.stdout;
+  }
+
+  /** Store `content` as a blob in the shadow repo and return its ID. */
+  writeBlob(content: Buffer): string {
+    return this.run(['hash-object', '-w', '--stdin'], content).trim();
+  }
+
+  /** Line hunks between two blobs, ignoring CR at end of line; `undefined` when git sees binary content. */
+  lineHunks(a: string, b: string): Hunk[] | undefined {
+    if (a === b) return [];
+    const out = this.run(['diff', '-U0', '--no-ext-diff', '--ignore-cr-at-eol', a, b]);
+    if (/^Binary files /m.test(out)) return undefined;
+    return [...out.matchAll(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/gm)].map(m => ({
+      oldStart: Number(m[1]),
+      oldCount: m[2] === undefined ? 1 : Number(m[2]),
+      newStart: Number(m[3]),
+      newCount: m[4] === undefined ? 1 : Number(m[4]),
+    }));
   }
 
   /** Object ID length of this repo: 40 (SHA-1) or 64 (SHA-256). */
