@@ -9,7 +9,8 @@ import { parseArgs, type Args } from './args.js';
 import { formatMarks, formatSteps, formatTurns } from '../core/format.js';
 import { install, uninstall } from '../agents/install.js';
 import { shellArg } from '../core/quote.js';
-import { record } from '../core/recorder.js';
+import { pendingForeignRoots, record } from '../core/recorder.js';
+import { turnWarning } from '../core/warnings.js';
 import { applyRestore, planRestore, redoTarget, undoTarget, type Operation } from '../core/restore.js';
 import { Store } from '../core/store.js';
 import type { Agent, HookEvent } from '../core/types.js';
@@ -42,8 +43,13 @@ async function runHook(agent: Agent, eventName?: string): Promise<void> {
     response = hookResponse(agent, payload.hook_event_name ?? eventName);
     const event = parseHook(agent, payload, process.cwd(), eventName);
     if (event) {
+      const foreign = event.kind === 'turn-end' ? pendingForeignRoots(event) : [];
       record(event);
       if (needsWarm(event)) warmInBackground(event.cwd);
+      if (event.kind === 'turn-end') {
+        const warning = turnWarning(event, foreign);
+        if (warning) response = hookResponse(agent, payload.hook_event_name ?? eventName, warning);
+      }
     }
   } catch (e) {
     logHookError(e);

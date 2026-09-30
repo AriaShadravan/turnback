@@ -17,6 +17,8 @@ const EDIT_TOOLS = new Set([
   'edit', 'write', 'multiedit', 'patch', 'write_to_file', 'replace_file_content', 'multi_replace_file_content',
 ]);
 const PATH_KEYS = ['file_path', 'notebook_path', 'path', 'filePath', 'TargetFile'];
+/** Agents whose end-of-turn hook shows `systemMessage` to the user without changing what the agent does. */
+const WARNING_AGENTS = new Set<Agent>(['claude']);
 /** Cursor events that must be answered with an explicit permission; empty output can block the tool. */
 const CURSOR_PERMISSION_EVENTS = new Set(['preToolUse', 'beforeShellExecution', 'beforeSubmitPrompt']);
 
@@ -53,8 +55,10 @@ export function parseHook(agent: Agent, p: Payload, fallbackCwd = process.cwd(),
  * Antigravity gets no output: `{}` or an empty `decision` denies the tool, and `allow` would skip
  * the user's permission prompt.
  */
-export function hookResponse(agent: Agent, event?: string): string {
+export function hookResponse(agent: Agent, event?: string, message?: string): string {
   if (agent === 'antigravity') return '';
+  // Only `systemMessage`: a Stop `decision` would make the agent keep working.
+  if (message && WARNING_AGENTS.has(agent)) return JSON.stringify({ systemMessage: message });
   return agent === 'cursor' && (!event || CURSOR_PERMISSION_EVENTS.has(event)) ? '{"permission":"allow"}' : '{}';
 }
 

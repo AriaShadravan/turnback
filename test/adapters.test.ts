@@ -73,3 +73,11 @@ it('passes the prompt of turn-start events only', () => {
   const tool = parseHook('claude', { hook_event_name: 'PreToolUse', session_id: 'p', tool_name: 'Bash', prompt: 'x', tool_input: { command: 'ls' }, cwd: root });
   expect(tool?.prompt).toBeUndefined();
 });
+
+it('adds a warning only for agents that show it and never a decision', () => {
+  expect(JSON.parse(hookResponse('claude', 'Stop', 'careful'))).toEqual({ systemMessage: 'careful' });
+  expect(hookResponse('gemini', 'AfterAgent', 'careful')).toBe('{}');
+  expect(hookResponse('codex', 'Stop', 'careful')).toBe('{}');
+  expect(hookResponse('cursor', 'stop', 'careful')).toBe('{}');
+  expect(hookResponse('antigravity', 'Stop', 'careful')).toBe('');
+});

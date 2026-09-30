@@ -31,6 +31,10 @@ export interface UserConfig {
   exclude?: string[];
   /** `false` stops recording prompt labels. */
   prompts?: boolean;
+  /** `false` turns off end-of-turn warnings. */
+  warnings?: boolean;
+  /** Warn when a turn deletes at least this many files. */
+  warnDeletes?: number;
 }
 
 /** `~/.turnback/config.json`; a missing, unreadable, or malformed file or field means defaults. */
@@ -38,10 +42,12 @@ export function userConfig(): UserConfig {
   let raw: unknown;
   try { raw = JSON.parse(readFileSync(path.join(dataHome(), 'config.json'), 'utf8')); } catch { return {}; }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
-  const { exclude, prompts } = raw as Record<string, unknown>;
+  const { exclude, prompts, warnings, warnDeletes } = raw as Record<string, unknown>;
   return {
     exclude: Array.isArray(exclude) ? exclude.filter((p): p is string => typeof p === 'string') : undefined,
     prompts: typeof prompts === 'boolean' ? prompts : undefined,
+    warnings: typeof warnings === 'boolean' ? warnings : undefined,
+    warnDeletes: typeof warnDeletes === 'number' && warnDeletes > 0 ? warnDeletes : undefined,
   };
 }
 
