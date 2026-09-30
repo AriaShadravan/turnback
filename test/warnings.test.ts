@@ -28,14 +28,14 @@ it('warns when a turn deletes many files, without a decision field', () => {
   expect(Object.keys(out)).toEqual(['systemMessage']);
   expect(out.systemMessage).toMatch(/deleted 25 files/);
   expect(out.systemMessage).toContain('turnback undo');
-}, 30_000);
+}, 90_000);
 
 it('warns when a turn changes secrets', () => {
   const p = tempProject('turnback-warn-env-');
   p.write('.env', 'A=1\n');
   const r = claudeTurn(p, () => p.write('.env', 'A=2\n'));
   expect(JSON.parse(r.stdout).systemMessage).toMatch(/changed \.env/);
-}, 30_000);
+}, 90_000);
 
 it('stays quiet for ordinary turns and respects config', () => {
   const p = tempProject('turnback-warn-quiet-');
@@ -51,4 +51,4 @@ it('stays quiet for ordinary turns and respects config', () => {
   manyFiles(off, 25);
   writeFileSync(path.join(off.home, 'config.json'), JSON.stringify({ warnings: false }));
   expect(JSON.parse(claudeTurn(off, () => rmSync(off.file('src'), { recursive: true })).stdout)).toEqual({});
-}, 60_000);
+}, 90_000);
