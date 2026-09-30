@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { formatConfigFiles, formatMarks, formatPlan, formatRestoreResult, formatStatus, formatSteps, formatTurns } from '../src/core/format.js';
+import { formatBlame, formatConfigFiles, formatMarks, formatPlan, formatRestoreResult, formatStatus, formatSteps, formatTurns } from '../src/core/format.js';
 import type { TurnSummary } from '../src/core/store.js';
 
 const turn = (extra: Partial<TurnSummary>): TurnSummary => ({
@@ -92,4 +92,21 @@ it('formats status as aligned fields', () => {
 it('formats installed and removed config files', () => {
   expect(formatConfigFiles('Installed Turnback in', ['/p/.claude/settings.json'], '/p')).toBe('Installed Turnback in:\n  .claude/settings.json');
   expect(formatConfigFiles('Removed Turnback from', [], '/p')).toBe('Removed Turnback from: nothing to change.');
+});
+
+it('formats blame with one label per run of lines', () => {
+  const t = turn({ id: 'codex:s:t1', agent: 'codex', prompt: 'add a long prompt that will not fit in the label column at all' });
+  const text = formatBlame([
+    { line: 1, text: 'import x', source: 'turn', turn: t },
+    { line: 2, text: 'import y', source: 'turn', turn: t },
+    { line: 3, text: '', source: 'before' },
+    { line: 4, text: '// todo', source: 'outside' },
+  ], new Map([['codex:s:t1', 2]]));
+  const rows = text.split('\n');
+  expect(rows[0]).toMatch(/^#2 codex \d\d-\d\d \d\d:\d\d "add a long.*…" +│ 1 │ import x$/);
+  expect(rows[0].indexOf('│')).toBeLessThanOrEqual(61);
+  expect(rows[1]).toMatch(/^ +│ 2 │ import y$/);
+  expect(rows[2]).toMatch(/^\(before Turnback\) +│ 3 │ $/);
+  expect(rows[3]).toMatch(/^\(outside a turn\) +│ 4 │ \/\/ todo$/);
+  expect(formatBlame([], new Map())).toBe('(empty file)');
 });

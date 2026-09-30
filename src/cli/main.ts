@@ -10,11 +10,12 @@ import { exportCommit, exportPatch } from '../core/export.js';
 import { compareTurns } from '../core/compare.js';
 import { htmlReport, sessionOf, sessionReport } from '../core/report.js';
 import { formatStats, statsCard, turnStats } from '../core/stats.js';
-import { formatConfigFiles, formatMarks, formatPlan, formatRestoreResult, formatStatus, formatSteps, formatTime, formatTurns } from '../core/format.js';
+import { formatBlame, formatConfigFiles, formatMarks, formatPlan, formatRestoreResult, formatStatus, formatSteps, formatTime, formatTurns } from '../core/format.js';
 import { install, uninstall } from '../agents/install.js';
 import { shellArg } from '../core/quote.js';
 import { pendingForeignRoots, record } from '../core/recorder.js';
 import { changedFiles, runAsTurn } from '../core/run.js';
+import { blameFile } from '../core/blame.js';
 import { turnWarning } from '../core/warnings.js';
 import { applyRestore, findRecoverable, planRestore, redoTarget, undoTarget, type Operation } from '../core/restore.js';
 import { Store } from '../core/store.js';
@@ -25,6 +26,7 @@ const USAGE = `Usage:
   turnback list [--json] | status [--json] | gc
   turnback steps <turn> [--json]
   turnback log <file|folder> [--json]
+  turnback blame <file> [-L <start>,<end>] [--json]
   turnback search <text> [--json]
   turnback diff <turn>
   turnback mark <label> | marks [--json]
@@ -252,6 +254,23 @@ async function main(): Promise<void> {
         `Both, different: ${c.both.join(', ') || '-'}`, `Both, same: ${c.same.join(', ') || '-'}`,
         '', c.patch,
       ].join('\n'));
+      return;
+    }
+    case 'blame': {
+      const file = args.positional[0];
+      if (!file) throw new Error('Missing file');
+      let lines = blameFile(store, path.resolve(file));
+      const range = args.values.get('-L');
+      if (range !== undefined) {
+        const m = /^(\d+),(\d+)$/.exec(range);
+        if (!m || Number(m[1]) < 1 || Number(m[1]) > Number(m[2])) throw new Error('-L needs <start>,<end> with 1 ≤ start ≤ end');
+        lines = lines.filter(l => l.line >= Number(m[1]) && l.line <= Number(m[2]));
+      }
+      if (args.flags.has('--json')) {
+        output(lines.map(({ turn, ...l }) => ({ ...l, turn: turn && { id: turn.id, agent: turn.agent, time: turn.time, prompt: turn.prompt } })));
+        return;
+      }
+      output(formatBlame(lines, new Map(store.turns().map((t, i) => [t.id, i + 1]))));
       return;
     }
     case 'stats': {

@@ -16,6 +16,7 @@ Every command prints text for people. Where noted, `--json` prints the raw data 
 | `steps <turn> [--json]` | Each edit and shell command of a turn. |
 | `restore <turn> --before-step N` | Returns to just before step N and keeps the earlier steps. |
 | `log <file\|folder> [--json]` | Turns that changed that path. |
+| `blame <file> [-L <start>,<end>] [--json]` | For each line of a text file, the turn that last wrote it (number as in `list`, agent, time, prompt), `(before Turnback)`, or `(outside a turn)` for changes made between turns. Turns removed by `gc` fall back to `(before Turnback)`. |
 | `search <text> [--json]` | Turns whose prompt, command, or paths match. |
 | `mark <label>` / `marks [--json]` | Saves the whole workspace as a checkpoint that `restore <label>` returns to. |
 | `ui [--port <n>] [--no-open]` | Read-only timeline of turns, steps, and diffs in the browser. |

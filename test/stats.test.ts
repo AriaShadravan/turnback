@@ -46,3 +46,9 @@ it('formats text and an SVG card with escaped text', () => {
   expect(svg).toContain('deleted 2 files');
   expect(svg).not.toContain('<script>');
 });
+
+it('says commands, not agents, when every turn came from turnback run', () => {
+  const s = turnStats(twoTurns(), 7);
+  expect(statsCard({ ...s, byAgent: { manual: 2 } })).toContain('Commands deleted 2 files this week.');
+  expect(statsCard({ ...s, byAgent: { manual: 1, codex: 1 } })).toContain('Agents deleted 2 files this week.');
+});

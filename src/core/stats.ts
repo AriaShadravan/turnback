@@ -66,7 +66,9 @@ const xml = (text: string) => text.replace(/[<>&"']/g, c => `&#${c.charCodeAt(0)
 /** A 1200×630 card for sharing, with no external resources. */
 export function statsCard(s: TurnStats): string {
   const period = s.days === 7 ? 'this week' : `in the last ${count(s.days, 'day')}`;
-  const headline = `Agents deleted ${count(s.deleted, 'file')} ${period}.`;
+  // `turnback run` turns are commands the user ran, not an agent's work.
+  const who = s.turns && Object.keys(s.byAgent).every(a => a === 'manual') ? 'Commands' : 'Agents';
+  const headline = `${who} deleted ${count(s.deleted, 'file')} ${period}.`;
   const saved = s.restoredFiles ? `Turnback brought back ${count(s.restoredFiles, 'file')}.` : 'Turnback kept a copy of every one.';
   const detail = `${count(s.turns, 'turn')} (${agents(s) || 'no agents'}) · ${s.created} created · ${s.modified} changed · ${count(s.commands, 'shell command')}`;
   const font = `font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"`;

@@ -230,7 +230,7 @@ it('prints stats and writes the share card', () => {
   const text = cli(p.root, p.home, ['stats']);
   expect(text.stdout).toMatch(/^Turns +1 +\(manual 1\)$/m);
   expect(cli(p.root, p.home, ['stats', '--svg', 'card.svg']).status).toBe(0);
-  expect(p.read('card.svg')).toContain('Agents deleted 1 file this week.');
+  expect(p.read('card.svg')).toContain('Commands deleted 1 file this week.');
   expect(cli(p.root, p.home, ['stats', '--days', '0']).status).toBe(2);
 }, 30_000);
 
@@ -243,4 +243,19 @@ it('writes the session report as HTML', () => {
   expect(p.read('r.html')).toContain('<h2>1. edit a</h2>');
   const auto = cli(p.root, p.home, ['report', '--html']);
   expect(auto.stdout).toBe('Wrote turnback-report-run.html\n');
+}, 30_000);
+
+it('blames a file through the CLI, with a line range and JSON', () => {
+  const p = tempProject('turnback-blame-cli-');
+  p.write('f.txt', 'a\nb\nc\n');
+  cli(p.root, p.home, ['run', '--label', 'change b', '--', process.execPath, '-e', "require('fs').writeFileSync('f.txt', 'a\\nB\\nc\\n')"]);
+  const text = cli(p.root, p.home, ['blame', 'f.txt']);
+  expect(text.stdout).toMatch(/^#1 manual .*"change b" +│ 2 │ B$/m);
+  expect(cli(p.root, p.home, ['blame', 'f.txt', '-L', '2,2']).stdout.trim().split('\n')).toHaveLength(1);
+  const json = JSON.parse(cli(p.root, p.home, ['blame', 'f.txt', '--json']).stdout);
+  expect(json[1]).toMatchObject({ line: 2, text: 'B', source: 'turn', turn: { agent: 'manual', prompt: 'change b' } });
+  expect(cli(p.root, p.home, ['blame', 'f.txt', '-L', '3,1']).status).toBe(2);
+  const gone = cli(p.root, p.home, ['blame', 'nope.txt']);
+  expect(gone.status).toBe(2);
+  expect(gone.stderr).toContain('turnback recover nope.txt');
 }, 30_000);

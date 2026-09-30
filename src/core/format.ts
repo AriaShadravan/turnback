@@ -2,6 +2,7 @@ import path from 'node:path';
 import type { Operation, RestorePlan, RestoreResult } from './restore.js';
 import type { Store, TurnSummary } from './store.js';
 import type { Mark, Step } from './types.js';
+import type { BlameLine } from './blame.js';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -100,4 +101,25 @@ export function formatConfigFiles(heading: string, files: string[], root: string
     return rel && !rel.startsWith('..') && !path.isAbsolute(rel) ? rel.replaceAll('\\', '/') : f;
   });
   return `${heading}:\n${shown.map(f => `  ${f}`).join('\n')}`;
+}
+
+const LABEL_WIDTH = 60;
+
+/** `turnback blame`: the label column shows only where the author changes. */
+export function formatBlame(lines: BlameLine[], numbers: Map<string, number>): string {
+  if (!lines.length) return '(empty file)';
+  const label = (l: BlameLine) => {
+    if (!l.turn) return l.source === 'before' ? '(before Turnback)' : '(outside a turn)';
+    const head = `#${numbers.get(l.turn.id) ?? '?'} ${l.turn.agent} ${formatTime(l.turn.time).slice(5)} `;
+    const room = LABEL_WIDTH - head.length - 2;
+    const prompt = l.turn.prompt ?? '(no prompt)';
+    return head + `"${prompt.length > room ? prompt.slice(0, room - 1) + '…' : prompt}"`;
+  };
+  const labels = lines.map(label);
+  const width = Math.max(...labels.map(l => l.length));
+  const digits = String(lines.at(-1)!.line).length;
+  return lines.map((l, i) => {
+    const shown = i > 0 && labels[i] === labels[i - 1] ? '' : labels[i];
+    return `${shown.padEnd(width)} │ ${String(l.line).padStart(digits)} │ ${l.text}`;
+  }).join('\n');
 }

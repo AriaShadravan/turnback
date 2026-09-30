@@ -70,6 +70,7 @@ turnback restore <turn> --before-step 3 --yes
 turnback mark "before migration"    # a checkpoint of your own
 turnback run -- npm run codegen     # any command as an undoable turn, no agent needed
 turnback recover src/app.ts         # bring back one file an agent deleted turns ago
+turnback blame src/auth.ts          # which turn and prompt wrote each line
 turnback ui                         # timeline in the browser
 ```
 
