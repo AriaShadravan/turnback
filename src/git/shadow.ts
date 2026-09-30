@@ -5,6 +5,12 @@ import path from 'node:path';
 import { EXCLUDED_DIRS, importBatchBytes, MAX_FILE_BYTES } from '../core/config.js';
 import { blobId } from '../workspace/workspace.js';
 
+export interface NameStatus {
+  /** A: added, M: modified, D: deleted, T: type changed (file ↔ symlink). */
+  status: 'A' | 'M' | 'D' | 'T';
+  path: string;
+}
+
 export interface TreeItem {
   oid: string;
   mode: string;
@@ -185,19 +191,43 @@ export class ShadowRepo {
     return this.oidLength;
   }
 
-  diffStat(a: string, b: string): string {
-    return this.run(['diff', '--stat', a, b]);
+  diffStat(a: string, b: string, paths?: string[]): string {
+    return this.diffWith(['diff', '--stat', '--no-renames', a, b], paths);
   }
 
-  diffPatch(a: string, b: string): string {
-    return this.diffStat(a, b) + this.run(['diff', '--no-ext-diff', a, b]);
+  diffPatch(a: string, b: string, paths?: string[]): string {
+    return this.diffStat(a, b, paths) + this.diffWith(['diff', '--no-ext-diff', '--no-renames', a, b], paths);
   }
 
+  /** Patch that `git apply` can replay, binary files included. */
+  diffBinary(a: string, b: string, paths?: string[]): string {
+    return this.diffWith(['diff', '--binary', '--no-ext-diff', '--no-renames', a, b], paths);
+  }
+
+  /** Renames count as a delete plus an add, so both paths are reported. */
   diffNames(a: string, b: string): string[] {
     const key = `${a}..${b}`;
     let names = this.names.get(key);
-    if (!names) this.names.set(key, names = this.list(['diff', '--name-only', '-z', a, b]));
+    if (!names) this.names.set(key, names = this.list(['diff', '--name-only', '--no-renames', '-z', a, b]));
     return names;
+  }
+
+  diffNameStatus(a: string, b: string): NameStatus[] {
+    const parts = this.list(['diff', '--name-status', '--no-renames', '-z', a, b]);
+    const result: NameStatus[] = [];
+    for (let i = 0; i + 1 < parts.length; i += 2) result.push({ status: parts[i] as NameStatus['status'], path: parts[i + 1] });
+    return result;
+  }
+
+  /**
+   * Run a diff, limited to `paths` when given. `git diff` has no --pathspec-from-file, so paths go on
+   * the command line in chunks that stay under the Windows command-line limit.
+   */
+  private diffWith(args: string[], paths?: string[]): string {
+    if (!paths) return this.run(args);
+    let out = '';
+    for (const chunk of chunkPaths(paths)) out += this.run([...args, '--', ...chunk.map(literalPathspec)]);
+    return out;
   }
 
   private run(args: string[], input?: string | Buffer): string {
@@ -257,3 +287,25 @@ export class ShadowRepo {
 function quotePath(rel: string): string {
   return `"${rel.replace(/[\\"]/g, c => `\\${c}`).replaceAll('\n', '\\n')}"`;
 }
+
+/** Command-line characters per diff call; Windows allows about 32k in total. */
+const PATHSPEC_CHARS = 16_000;
+
+function chunkPaths(paths: string[]): string[][] {
+  const chunks: string[][] = [];
+  let current: string[] = [], size = 0;
+  for (const p of paths) {
+    if (current.length && size + p.length > PATHSPEC_CHARS) {
+      chunks.push(current);
+      current = [];
+      size = 0;
+    }
+    current.push(p);
+    size += p.length + 12;
+  }
+  if (current.length) chunks.push(current);
+  return chunks;
+}
+
+/** Match the path exactly, even when it contains glob characters. */
+const literalPathspec = (p: string) => `:(literal)${p}`;
