@@ -1,14 +1,25 @@
 {
   "name": "turnback",
   "description": "Turnback: undo any coding agent turn, including shell commands and untracked files",
-  "owner": { "name": "MFaizR77", "url": "https://github.com/MFaizR77" },
+  "owner": {
+    "name": "MFaizR77",
+    "url": "https://github.com/MFaizR77"
+  },
   "plugins": [
     {
       "name": "turnback",
       "description": "Undo any agent turn, including shell commands and untracked files",
-      "source": { "source": "npm", "package": "turnback", "version": "^0.1.1" },
+      "source": {
+        "source": "npm",
+        "package": "turnback",
+        "version": "^0.4.0"
+      },
       "category": "safety",
-      "tags": ["undo", "restore", "snapshot"]
+      "tags": [
+        "undo",
+        "restore",
+        "snapshot"
+      ]
     }
   ]
 }

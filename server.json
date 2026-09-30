@@ -7,12 +7,12 @@
     "url": "https://github.com/MFaizR77/turnback",
     "source": "github"
   },
-  "version": "0.1.1",
+  "version": "0.4.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "turnback",
-      "version": "0.1.1",
+      "version": "0.4.0",
       "transport": {
         "type": "stdio"
       },

@@ -5,6 +5,8 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Must match the environment set on the npm trusted publisher.
+    environment: turnback
     permissions:
       contents: read
       id-token: write # npm trusted publishing and MCP registry login

@@ -1,18 +1,32 @@
 {
   "name": "turnback",
   "displayName": "Turnback",
-  "version": "0.1.1",
+  "version": "0.4.0",
   "description": "Undo any agent turn, including shell commands and untracked files",
-  "author": { "name": "MFaizR77", "url": "https://github.com/MFaizR77" },
+  "author": {
+    "name": "MFaizR77",
+    "url": "https://github.com/MFaizR77"
+  },
   "homepage": "https://github.com/MFaizR77/turnback#readme",
   "repository": "https://github.com/MFaizR77/turnback",
   "license": "MIT",
-  "keywords": ["undo", "restore", "snapshot", "checkpoint", "safety"],
+  "keywords": [
+    "undo",
+    "restore",
+    "snapshot",
+    "checkpoint",
+    "safety"
+  ],
   "mcpServers": {
     "turnback": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/cli.js", "mcp"],
-      "env": { "TURNBACK_WORKSPACE": "${CLAUDE_PROJECT_DIR}" }
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/dist/cli.js",
+        "mcp"
+      ],
+      "env": {
+        "TURNBACK_WORKSPACE": "${CLAUDE_PROJECT_DIR}"
+      }
     }
   }
 }
