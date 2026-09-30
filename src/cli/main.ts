@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hookResponse, parseHook } from '../agents/adapters.js';
 import { dataHome } from '../core/config.js';
 import { parseArgs, type Args } from './args.js';
+import { exportCommit, exportPatch } from '../core/export.js';
 import { formatMarks, formatSteps, formatTurns } from '../core/format.js';
 import { install, uninstall } from '../agents/install.js';
 import { shellArg } from '../core/quote.js';
@@ -24,6 +25,7 @@ const USAGE = `Usage:
   turnback mark <label> | marks [--json]
   turnback restore <turn|mark|snapshot> [--before-step <n>] [--path <p>...] [--dry-run | --yes]
   turnback undo | redo [--dry-run | --yes]
+  turnback export <turn...> [--out <file.patch>] | --commit [--message <text>]
   turnback ui [--port <n>] [--no-open]
   turnback mcp`;
 
@@ -144,6 +146,22 @@ async function main(): Promise<void> {
       const ui = await startUi(store, Number(args.values.get('--port') ?? 0));
       output(`Turnback UI: ${ui.url}\nRead-only. Press Ctrl+C to stop.`);
       if (!args.flags.has('--no-open')) openBrowser(ui.url);
+      return;
+    }
+    case 'export': {
+      const ids = args.positional;
+      if (args.flags.has('--commit')) {
+        const result = exportCommit(store, ids, args.values.get('--message'));
+        const skipped = result.ignored.length ? ` Skipped ignored: ${result.ignored.join(', ')}.` : '';
+        output(`Committed ${result.paths.length} files as ${result.commit.slice(0, 12)}.${skipped}`);
+        return;
+      }
+      const patch = exportPatch(store, ids);
+      const out = args.values.get('--out');
+      if (out) {
+        writeFileSync(path.resolve(out), patch);
+        output(`Wrote ${out}. Apply it with: git apply ${shellArg(out) ?? out}`);
+      } else process.stdout.write(patch);
       return;
     }
     case 'diff': {
