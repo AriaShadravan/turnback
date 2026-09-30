@@ -60,17 +60,22 @@ export function exportCommit(store: Store, ids: string[], message?: string): Exp
 
   // Exits 1 when nothing is ignored; the list is on stdout either way.
   const ignored = git(['check-ignore', '--no-index', '-z', '--stdin'], paths.join('\0') + '\0').stdout.split('\0').filter(Boolean);
-  const committed = paths.filter(p => !ignored.includes(p));
+  // A file the turn deleted that git never tracked has nothing to commit, and `git add` would fail on it.
+  const tracked = new Set(git(['ls-files', '-z']).stdout.split('\0').filter(Boolean));
+  const committed = paths.filter(p => !ignored.includes(p) && (store.workspace.stat(p) !== undefined || tracked.has(p)));
   if (!committed.length) throw new Error('Nothing to commit: every changed file is ignored by git');
 
   const list = path.join(store.dir, `export-${randomUUID()}`);
   try {
     writeFileSync(list, committed.join('\0') + '\0');
     const pathspec = [`--pathspec-from-file=${list}`, '--pathspec-file-nul'];
-    const add = git(['add', '-A', ...pathspec]);
+    // Turn paths such as `app/[slug]/page.tsx` must never be read as globs in the user's repo.
+    // (check-ignore above rejects this flag, so it is set per command.)
+    const literal = '--literal-pathspecs';
+    const add = git([literal, 'add', '-A', ...pathspec]);
     if (add.status !== 0) throw new Error(`git add failed: ${add.stderr.trim()}`);
     const text = message ?? commitMessage(turns.map(t => store.summarize(t)));
-    const commit = git(['commit', '--only', '-q', '-F', '-', ...pathspec], text);
+    const commit = git([literal, 'commit', '--only', '-q', '-F', '-', ...pathspec], text);
     if (commit.status !== 0) throw new Error(`git commit failed: ${(commit.stderr || commit.stdout).trim()}`);
   } finally {
     rmSync(list, { force: true });

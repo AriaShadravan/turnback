@@ -59,3 +59,28 @@ it('refuses outside a git repository', () => {
   rmSync(p.file('.git'), { recursive: true, force: true });
   expect(() => exportCommit(new Store(p.root), ['t'])).toThrow(/Not a git repository/);
 });
+
+it('treats changed paths literally, not as globs, in the user repository', () => {
+  const p = tempProject('turnback-export-glob-');
+  p.write('a.txt', 'one\n');
+  git(p.root, 'add', '-A');
+  git(p.root, 'commit', '-qm', 'init');
+  hook(p.root, 'shell', 't', { command: 'edit' });
+  p.write('[ab].txt', 'bracket\n');
+  hook(p.root, 'turn-end', 't');
+  p.write('a.txt', 'user edit, not staged\n');
+  exportCommit(new Store(p.root), ['t']);
+  expect(git(p.root, 'show', '--name-only', '--format=', 'HEAD').stdout.trim()).toBe('[ab].txt');
+  expect(git(p.root, 'diff', '--name-only').stdout.trim()).toBe('a.txt');
+});
+
+it('skips files the turn deleted that git never tracked', () => {
+  const p = project();
+  hook(p.root, 'shell', 't2', { command: 'cleanup' });
+  rmSync(p.file('b.txt'));
+  p.write('a.txt', 'three\n');
+  hook(p.root, 'turn-end', 't2');
+  const result = exportCommit(new Store(p.root), ['t2']);
+  expect(result.paths).toEqual(['a.txt']);
+  expect(git(p.root, 'log', '-1', '--format=%s').stdout.trim()).toBe('Agent turn codex:s:t2');
+});

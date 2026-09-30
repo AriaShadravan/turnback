@@ -265,6 +265,8 @@ export class ShadowRepo {
     return [
       `--git-dir=${this.gitDir}`, `--work-tree=${this.root}`,
       '-c', 'core.autocrlf=false', '-c', 'core.longpaths=true',
+      // Patches must stay appliable whatever the user's global config says.
+      '-c', 'color.ui=never', '-c', 'diff.noprefix=false', '-c', 'diff.mnemonicPrefix=false',
       '-c', 'user.name=Turnback', '-c', 'user.email=turnback@localhost', '-c', 'user.useConfigOnly=false',
       ...args,
     ];

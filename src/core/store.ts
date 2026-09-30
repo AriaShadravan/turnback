@@ -57,7 +57,8 @@ export class Store {
   }
 
   latestRef(): string | undefined {
-    return this.entries().filter(e => e.ref && e.status === 'ok').at(-1)?.ref;
+    // Probes (diff_range) are never a base: a turn's later snapshots must not absorb what a probe saw.
+    return this.entries().filter(e => e.ref && e.status === 'ok' && e.kind !== 'probe').at(-1)?.ref;
   }
 
   locked<T>(fn: () => T): T {
@@ -294,6 +295,7 @@ export class Store {
 
   /** Snapshot the current files for a read-only comparison. gc removes probes after a day. */
   probe(): string {
+    if (this.mode() === 'edits-only') throw new Error('The current files cannot be compared in edits-only mode: only edited paths are snapshotted. Pass `to` instead.');
     const entry = this.snapshot('probe', { agent: 'turnback', session: 'probe', turn: randomUUID() });
     if (entry.status !== 'ok' || !entry.ref) throw new Error(`Snapshot failed: ${entry.note ?? entry.status}`);
     return entry.ref;

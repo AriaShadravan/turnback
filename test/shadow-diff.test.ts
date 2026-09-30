@@ -1,4 +1,5 @@
-import { renameSync, rmSync } from 'node:fs';
+import { renameSync, rmSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { expect, it } from 'vitest';
 import { Store } from '../src/core/store.js';
 import { hook, tempProject } from './helpers.js';
@@ -42,4 +43,20 @@ it('writes a binary-safe patch without rename detection', () => {
   expect(patch).toContain('diff --git a/a.txt b/a.txt');
   expect(patch).toContain('deleted file mode');
   expect(patch).not.toContain('rename from');
+});
+
+it('writes patches that git apply accepts whatever the user global git config says', () => {
+  const { store, turn } = mixedTurn();
+  const config = path.join(store.dir, 'hostile-gitconfig');
+  writeFileSync(config, '[diff]\n\tnoprefix = true\n\tmnemonicPrefix = true\n[color]\n\tui = always\n');
+  const before = process.env.GIT_CONFIG_GLOBAL;
+  process.env.GIT_CONFIG_GLOBAL = config;
+  try {
+    const patch = store.repo.diffBinary(turn.baseline, turn.end!);
+    expect(patch).toContain('diff --git a/c.txt b/c.txt');
+    expect(patch).not.toContain('\x1b[');
+    expect(store.repo.diffPatch(turn.baseline, turn.end!)).not.toContain('\x1b[');
+  } finally {
+    process.env.GIT_CONFIG_GLOBAL = before;
+  }
 });
