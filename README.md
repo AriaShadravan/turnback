@@ -82,6 +82,10 @@ Tracked, untracked, and gitignored files up to 5 MB are covered. Build output an
 
 Workspaces above 100k files or 2 GB switch to `edits-only` mode: only paths touched by edit tools are snapshotted, shell commands are recorded as `unprotected`, and restore touches only recorded paths. Turns older than 7 days and outside the last 50 turns are cleaned up automatically, at most once a day.
 
+## Contributing
+
+Issues labeled [`good first issue`](https://github.com/MFaizR77/turnback/labels/good%20first%20issue) are small and say which files they touch, and [support for more agents](guide/ADAPTERS.md) is welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the [architecture overview](guide/ARCHITECTURE.md).
+
 ## Development
 
 | Module | Contents |

@@ -1,0 +1,33 @@
+name: Support a new agent
+description: Ask for, or offer to build, support for another coding agent.
+labels: [agent-adapter, enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: "Turnback needs hooks for turn start, before shell commands, before file edits, and turn end. See [adding an agent](https://github.com/MFaizR77/turnback/blob/main/guide/ADAPTERS.md)."
+  - type: input
+    id: agent
+    attributes:
+      label: Agent
+      placeholder: Name and link
+    validations:
+      required: true
+  - type: input
+    id: docs
+    attributes:
+      label: Hook documentation
+      description: Link to the agent's official hook or plugin documentation.
+  - type: checkboxes
+    id: events
+    attributes:
+      label: Hooks the agent offers
+      options:
+        - label: Turn start (with the user's prompt)
+        - label: Before a shell command
+        - label: Before a file edit (with the file path)
+        - label: Turn end
+  - type: dropdown
+    id: help
+    attributes:
+      label: Would you build it?
+      options: [Yes, I'd like to open a PR, I can test it with the agent, No, just asking]

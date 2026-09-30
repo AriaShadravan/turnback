@@ -1,0 +1,38 @@
+name: Bug report
+description: Something was not recorded, not restored, or restored wrong.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you run, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Agent
+      options: [Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Antigravity CLI, None (CLI only), Other]
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: "`turnback --version` is not available yet; give the npm version (`npm ls -g turnback`) or plugin version, your OS, Node, and git."
+      placeholder: turnback 0.5.0, Windows 11, Node 24.1, git 2.50
+    validations:
+      required: true
+  - type: textarea
+    id: status
+    attributes:
+      label: turnback status --json
+      description: Run it in the affected project. Remove paths you don't want to share.
+      render: json
+  - type: textarea
+    id: logs
+    attributes:
+      label: Hook log
+      description: Lines from `~/.turnback/logs/<date>.log` around the time it happened, if any.
+      render: text
