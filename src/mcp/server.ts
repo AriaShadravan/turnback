@@ -3,10 +3,11 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import path from 'node:path';
 import * as z from 'zod/v4';
 import { VERSION } from '../core/config.js';
-import { formatSteps, formatTurns } from '../core/format.js';
+import { formatBlame, formatSteps, formatTurns } from '../core/format.js';
+import { blameFile } from '../core/blame.js';
 import { compareTurns } from '../core/compare.js';
 import { sessionReport } from '../core/report.js';
-import { applyRestore, planRestore, redoTarget, resolveRef } from '../core/restore.js';
+import { applyRestore, findRecoverable, planRestore, redoTarget, resolveRef } from '../core/restore.js';
 import { Store } from '../core/store.js';
 
 const MAX_DIFF_CHARS = 40_000;
@@ -76,6 +77,44 @@ export function createServer(): McpServer {
       const store = storeFor(workspace);
       const turns = store.fileHistory(path.resolve(store.root, target));
       return result({ turns }, formatTurns(turns));
+    } catch (e) { return failure(e); }
+  });
+
+  server.registerTool('blame_file', {
+    description: 'For each line of a text file: the turn that last wrote it (agent, time, prompt), "before" Turnback started recording, or "outside" a turn (changed between turns)',
+    inputSchema: z.object({
+      path: z.string().describe('File, relative to the workspace or absolute'),
+      start: z.number().int().min(1).optional().describe('First line to include'),
+      end: z.number().int().min(1).optional().describe('Last line to include'),
+      workspace: workspaceParam,
+    }),
+    annotations: { readOnlyHint: true },
+  }, async ({ path: target, start, end, workspace }) => {
+    try {
+      const store = storeFor(workspace);
+      const blamed = blameFile(store, path.resolve(store.root, target)).filter(l => l.line >= (start ?? 1) && l.line <= (end ?? Infinity));
+      const lines = blamed.map(({ turn, ...l }) => ({ ...l, ...turn && { turn: { id: turn.id, agent: turn.agent, time: turn.time, prompt: turn.prompt } } }));
+      const text = formatBlame(blamed, new Map(store.turns().map((t, i) => [t.id, i + 1])));
+      return result({ lines }, text.slice(0, SUMMARY_CHARS));
+    } catch (e) { return failure(e); }
+  });
+
+  server.registerTool('recover_file', {
+    description: 'Find the newest snapshot holding a version of one file that differs from the file on disk (for a deleted file, the last one that had it). Nothing is written: pass the returned target and paths to restore to bring it back.',
+    inputSchema: z.object({ path: z.string().describe('File, relative to the workspace or absolute'), workspace: workspaceParam }),
+    annotations: { readOnlyHint: true },
+  }, async ({ path: target, workspace }) => {
+    try {
+      const store = storeFor(workspace);
+      const abs = path.resolve(store.root, target);
+      const found = findRecoverable(store, abs);
+      const rel = store.workspace.relative(abs)!;
+      if (!found) throw new Error(`No snapshot has a version of ${rel} that differs from the file on disk`);
+      const turn = found.turn && store.summarize(found.turn, []);
+      return result(
+        { target: found.ref, paths: [rel], time: found.entry.time, turn: turn && { id: turn.id, agent: turn.agent, time: turn.time, prompt: turn.prompt } },
+        `Found a version of ${rel} from ${turn ? `turn "${turn.prompt ?? turn.id}" (${turn.agent})` : `the snapshot of ${found.entry.time}`}. Call restore with target ${found.ref} and paths ["${rel}"] to preview bringing it back.`,
+      );
     } catch (e) { return failure(e); }
   });
 

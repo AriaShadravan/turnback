@@ -29,7 +29,7 @@ it('serves read tools and a two-step restore', async () => {
   const client = await connect(new Client({ name: 'test', version: '1.0.0' }));
   try {
     const { tools } = await client.listTools();
-    expect(tools.map(t => t.name).sort()).toEqual(['compare_turns', 'diff_range', 'diff_turn', 'file_history', 'list_turns', 'redo', 'restore', 'search_turns', 'session_report', 'status', 'turn_steps']);
+    expect(tools.map(t => t.name).sort()).toEqual(['blame_file', 'compare_turns', 'diff_range', 'diff_turn', 'file_history', 'list_turns', 'recover_file', 'redo', 'restore', 'search_turns', 'session_report', 'status', 'turn_steps']);
     expect(tools.find(t => t.name === 'restore')?.annotations?.destructiveHint).toBe(true);
     expect(tools.find(t => t.name === 'list_turns')?.annotations?.readOnlyHint).toBe(true);
     expect((await call(client, 'list_turns', {})).data.turns[0].changedFiles).toBe(1);
@@ -150,3 +150,26 @@ it('shows what changed since a turn started, including uncommitted edits', async
     await client.close();
   }
 }, 15_000);
+
+it('blames a file and finds a version to recover, leaving the restore to the restore tool', async () => {
+  const client = await connect(new Client({ name: 'test', version: '1.0.0' }));
+  try {
+    const { tools } = await client.listTools();
+    expect(tools.find(t => t.name === 'recover_file')?.annotations?.readOnlyHint).toBe(true);
+
+    const blame = await call(client, 'blame_file', { path: 'a.txt' });
+    expect(blame.data.lines).toEqual([{ line: 1, text: 'agent', source: 'turn', turn: expect.objectContaining({ agent: 'codex' }) }]);
+    expect(blame.content[0].text).toMatch(/codex .*│ 1 │ agent/);
+
+    const found = await call(client, 'recover_file', { path: 'a.txt' });
+    expect(found.data).toMatchObject({ target: expect.stringMatching(/^refs\/turnback\//), paths: ['a.txt'] });
+    expect(p.read('a.txt')).toBe('agent');
+    const preview = await call(client, 'restore', { target: found.data.target, paths: found.data.paths });
+    await call(client, 'restore', { target: found.data.target, paths: found.data.paths, token: preview.data.confirm_token });
+    expect(p.read('a.txt')).toBe('old');
+
+    expect((await call(client, 'recover_file', { path: 'never.txt' })).isError).toBe(true);
+  } finally {
+    await client.close();
+  }
+}, 60_000);
