@@ -4,7 +4,7 @@ import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hookResponse, parseHook } from '../agents/adapters.js';
-import { dataHome } from '../core/config.js';
+import { dataHome, VERSION } from '../core/config.js';
 import { parseArgs, type Args } from './args.js';
 import { exportCommit, exportPatch } from '../core/export.js';
 import { compareTurns } from '../core/compare.js';
@@ -39,7 +39,8 @@ const USAGE = `Usage:
   turnback stats [--days <n>] [--json] [--svg <file>]
   turnback compare <turnA> <turnB> [--json]
   turnback ui [--port <n>] [--no-open]
-  turnback mcp`;
+  turnback mcp
+  turnback --version`;
 
 const CLI = fileURLToPath(import.meta.url);
 
@@ -163,6 +164,7 @@ async function main(): Promise<void> {
   if (command === 'run') return runCommand(rest);
   const args = parseArgs(rest);
 
+  if (command === '--version' || command === '-v' || command === 'version') return output(VERSION);
   if (command === 'hook') return runHook(args.positional[0] as Agent, args.positional[1]);
   if (command === 'mcp') return (await import('../mcp/server.js')).serveMcp();
 

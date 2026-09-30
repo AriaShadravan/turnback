@@ -280,3 +280,13 @@ it('looks up one path per snapshot without listing whole trees in blame and reco
   expect(traced(['blame', 'f.txt'])).not.toMatch(/git ls-tree/);
   expect(traced(['recover', 'never.txt'])).not.toMatch(/git ls-tree/);
 }, 60_000);
+
+it('prints the version with --version, -v, and version', () => {
+  const p = tempProject('turnback-version-');
+  const { version } = JSON.parse(readFileSync(path.resolve('package.json'), 'utf8'));
+  for (const flag of ['--version', '-v', 'version']) {
+    const r = cli(p.root, p.home, [flag]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe(`${version}\n`);
+  }
+}, 30_000);
