@@ -1,7 +1,7 @@
-import { chmodSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { chmodSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { applyRestore } from '../src/core/restore.js';
+import { applyRestore, planRestore } from '../src/core/restore.js';
 import { Store } from '../src/core/store.js';
 import { hook, tempProject } from './helpers.js';
 
@@ -76,4 +76,16 @@ it('detects the next change against an imported baseline without rescanning cont
   p.write('src/f3.txt', 'edited');
   const next = store.snapshot('shell', { agent: 'codex', session: 's', turn: 't1' });
   expect(store.repo.diffNames(warm.ref!, next.ref!)).toEqual(['src/f3.txt']);
+});
+
+it('never snapshots its own data folder when TURNBACK_HOME is inside the workspace', () => {
+  const p = tempProject('turnback-home-inside-');
+  process.env.TURNBACK_HOME = p.file('tb-data');
+  p.write('a.txt', 'a');
+  hook(p.root, 'turn-start', 't');
+  hook(p.root, 'shell', 't', { command: 'rm a.txt' });
+  rmSync(p.file('a.txt'));
+  hook(p.root, 'turn-end', 't');
+  const plan = planRestore(new Store(p.root), 't');
+  expect(plan.actions.map(a => a.path)).toEqual(['a.txt']);
 });

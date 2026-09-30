@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { lstatSync, readdirSync, readFileSync, readlinkSync, type Stats } from 'node:fs';
 import path from 'node:path';
 import ignore, { type Ignore } from 'ignore';
-import { canonicalPath, EXCLUDED_DIRS, MAX_FILE_BYTES, userConfig } from '../core/config.js';
+import { canonicalPath, dataHome, EXCLUDED_DIRS, MAX_FILE_BYTES, userConfig } from '../core/config.js';
 
 export interface Scan {
   /** Files in snapshot scope (relative paths, `/` separator). */
@@ -25,6 +25,9 @@ export class Workspace {
   constructor(readonly root: string) {
     try { this.matcher.add(readFileSync(path.join(root, '.turnbackignore'), 'utf8')); } catch { /* optional */ }
     this.matcher.add(userConfig().exclude ?? []);
+    // A TURNBACK_HOME inside the project must never snapshot, or restore over, Turnback's own data.
+    const home = this.relative(dataHome());
+    if (home) this.matcher.add(`/${home}/`);
   }
 
   abs(rel: string): string {
