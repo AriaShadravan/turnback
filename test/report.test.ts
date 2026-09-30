@@ -56,3 +56,14 @@ it('cuts a long diff in the HTML report and says so', () => {
   const html = htmlReport(new Store(p.root), undefined, 20);
   expect(html).toContain('Diff cut at 20 characters');
 });
+
+it('keeps the contents of secret files out of the HTML report', () => {
+  const p = tempProject('turnback-report-secret-');
+  p.write('.env', 'API_KEY=old\n');
+  turn(p, 's1', 't1', 'rotate key', () => { p.write('.env', 'API_KEY=sk-live-secret\n'); p.write('a.txt', 'visible\n'); });
+  const html = htmlReport(new Store(p.root));
+  expect(html).not.toContain('sk-live-secret');
+  expect(html).not.toContain('API_KEY=old');
+  expect(html).toContain('visible');
+  expect(html).toMatch(/<code>\.env<\/code> <span class="M">modified<\/span> \(content hidden\)/);
+});

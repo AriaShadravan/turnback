@@ -212,14 +212,15 @@ export function findRecoverable(store: Store, absPath: string): Recoverable | un
   if (!rel) throw new Error(`Path outside workspace: ${absPath}`);
   if (store.mode() === 'edits-only') throw new Error('recover needs full snapshots; this workspace is in edits-only mode');
   const have = store.workspace.fileState(rel, store.repo.objectIdLength());
-  const seen = new Set<string>();
-  for (const entry of store.entries().reverse()) {
-    if (entry.status !== 'ok' || !entry.ref || seen.has(entry.ref) || !store.repo.refExists(entry.ref)) continue;
-    seen.add(entry.ref);
-    const want = store.repo.tree(entry.ref).get(rel);
-    if (!want || (have && sameFile(want, have))) continue;
+  // Newest entry per snapshot ref, newest first.
+  const newest = new Map<string, Entry>();
+  for (const e of store.entries().reverse()) if (e.status === 'ok' && e.ref && !newest.has(e.ref)) newest.set(e.ref, e);
+  const found = store.repo.lookup([...newest.keys()], rel);
+  for (const [ref, entry] of newest) {
+    const oid = found.get(ref)?.oid;
+    if (!oid || oid === have?.oid) continue;
     const turn = store.turns().find(t => t.entries.some(e => e.id === entry.id));
-    return { ref: entry.ref, entry, turn };
+    return { ref, entry, turn };
   }
   return undefined;
 }

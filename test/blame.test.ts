@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { applyHunks, blameFile } from '../src/core/blame.js';
+import { applyRestore, undoTarget } from '../src/core/restore.js';
 import { Store } from '../src/core/store.js';
 import { hook, tempProject } from './helpers.js';
 
@@ -94,4 +95,39 @@ it('treats changes of an unfinished turn as outside a turn', () => {
   hook(p.root, 'edit', 't1', { paths: [p.file('f.txt')] });
   p.write('f.txt', 'a\nb\n');
   expect(sources(p, 'f.txt')).toEqual(['before', 'outside']);
+});
+
+it('gives lines restored by undo back to their earlier author', () => {
+  const p = tempProject('turnback-blame-undo-');
+  p.write('f.txt', 'a\nb\nc\n');
+  editTurn(p, 't1', 'f.txt', 'a\nc\n');
+  const store = new Store(p.root);
+  applyRestore(store, undoTarget(store)!, { operation: 'undo' });
+  expect(sources(p, 'f.txt')).toEqual(['before', 'before', 'before']);
+});
+
+it('labels every change of an unfinished turn outside, even after several snapshots', () => {
+  const p = tempProject('turnback-blame-open2-');
+  p.write('f.txt', 'a\n');
+  hook(p.root, 'turn-start', 't1');
+  hook(p.root, 'edit', 't1', { paths: [p.file('f.txt')] });
+  p.write('f.txt', 'a\nb\n');
+  hook(p.root, 'edit', 't1', { paths: [p.file('f.txt')] });
+  p.write('f.txt', 'a\nb\nc\n');
+  expect(sources(p, 'f.txt')).toEqual(['before', 'outside', 'outside']);
+});
+
+it('keeps lines that predate recording as before in edits-only mode', () => {
+  process.env.TURNBACK_MAX_FILES = '3';
+  try {
+    const p = tempProject('turnback-blame-edits-only-');
+    for (const name of ['a', 'b', 'c', 'd']) p.write(`${name}.txt`, `${name}\n`);
+    p.write('g.txt', 'g\n');
+    new Store(p.root).warm();
+    editTurn(p, 't1', 'a.txt', 'a\nA\n');
+    editTurn(p, 't2', 'g.txt', 'g\nG\n');
+    expect(sources(p, 'g.txt')).toEqual(['before', 't2']);
+  } finally {
+    delete process.env.TURNBACK_MAX_FILES;
+  }
 });

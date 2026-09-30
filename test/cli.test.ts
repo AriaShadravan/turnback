@@ -259,3 +259,24 @@ it('blames a file through the CLI, with a line range and JSON', () => {
   expect(gone.status).toBe(2);
   expect(gone.stderr).toContain('turnback recover nope.txt');
 }, 30_000);
+
+it('passes arguments through turnback run unchanged', () => {
+  const p = tempProject('turnback-run-args-');
+  p.write('a.txt', 'a\n');
+  const args = ['%OS%', 'a b\\', 'xy', 'C:\\Program Files\\x\\', 'q"uote', '\\d+', 'a&b', '$HOME', "it's", '(x)'];
+  const r = cli(p.root, p.home, ['run', '--', process.execPath, '-e', 'process.stdout.write(JSON.stringify(process.argv.slice(1)))', ...args]);
+  expect(JSON.parse(r.stdout)).toEqual(args);
+}, 30_000);
+
+it('looks up one path per snapshot without listing whole trees in blame and recover', () => {
+  const p = tempProject('turnback-lookup-');
+  p.write('f.txt', 'a\n');
+  for (const t of ['t1', 't2', 't3']) {
+    cli(p.root, p.home, ['run', '--label', t, '--', process.execPath, '-e', `require('fs').appendFileSync('f.txt', '${t}\\n')`]);
+  }
+  const traced = (args: string[]) => spawnSync(process.execPath, [CLI, ...args], {
+    cwd: p.root, encoding: 'utf8', env: { ...process.env, TURNBACK_HOME: p.home, TURNBACK_TRACE_GIT: '1' },
+  }).stderr;
+  expect(traced(['blame', 'f.txt'])).not.toMatch(/git ls-tree/);
+  expect(traced(['recover', 'never.txt'])).not.toMatch(/git ls-tree/);
+}, 60_000);

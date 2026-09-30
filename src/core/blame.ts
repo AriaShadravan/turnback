@@ -59,26 +59,39 @@ export function blameFile(store: Store, absPath: string): BlameLine[] {
 
   const lines = splitLines(disk);
   const repo = store.repo;
-  // The file as it was when Turnback started recording this workspace.
-  const first = store.entries().find(e => e.status === 'ok' && e.ref && repo.refExists(e.ref))?.ref;
+  const refs = [...new Set(store.entries().flatMap(e => e.status === 'ok' && e.ref ? [e.ref] : []))];
+  const found = refs.length ? repo.lookup(refs, rel) : new Map<string, { exists: boolean; oid?: string }>();
+  // The file as it was when Turnback started recording it. In edits-only mode a snapshot holds only
+  // the paths edited so far, so recording of this file starts with the first snapshot that has it.
+  const editsOnly = store.mode() === 'edits-only';
+  const first = refs.find(ref => found.get(ref)?.exists && (!editsOnly || found.get(ref)?.oid));
   // Nothing recorded yet (and maybe no shadow repo): every line predates Turnback.
   if (!first) return lines.map((text, i) => ({ line: i + 1, text, source: 'before' }));
 
   const empty = repo.writeBlob(Buffer.alloc(0));
-  const oidAt = (ref: string) => repo.tree(ref).get(rel)?.oid ?? empty;
-  const turns = store.fileHistory(absPath).filter(t => t.end).reverse();
+  const oidAt = (ref: string) => found.get(ref)?.oid ?? empty;
+  // Finished turns only: an unfinished turn has no end snapshot, so its changes count as outside.
+  const turns = store.turns().reverse().flatMap(turn => {
+    const end = turn.entries.findLast(e => e.kind === 'turn-end' && e.status === 'ok' && e.ref)?.ref;
+    return end && oidAt(turn.baseline) !== oidAt(end) ? [{ summary: store.summarize(turn, []), baseline: turn.baseline, end }] : [];
+  });
 
   let current = oidAt(first);
   let labels = splitLines(repo.blob(current)).map(() => BEFORE);
+  // Labels of every version seen so far: a change outside a turn that returns the file to an earlier
+  // version (an undo, a recover, a manual revert) gets that version's labels back.
+  const seen = new Map([[current, labels]]);
   const step = (next: string, label: Label) => {
     if (next === current) return;
-    const hunks = repo.lineHunks(current, next);
-    labels = hunks ? applyHunks(labels, hunks, label) : splitLines(repo.blob(next)).map(() => label);
+    const earlier = label === OUTSIDE ? seen.get(next) : undefined;
+    const hunks = earlier ? undefined : repo.lineHunks(current, next);
+    labels = earlier ?? (hunks ? applyHunks(labels, hunks, label) : splitLines(repo.blob(next)).map(() => label));
+    seen.set(next, labels);
     current = next;
   };
   for (const turn of turns) {
     step(oidAt(turn.baseline), OUTSIDE);
-    step(oidAt(turn.end!), { source: 'turn', turn });
+    step(oidAt(turn.end), { source: 'turn', turn: turn.summary });
   }
   step(repo.writeBlob(disk), OUTSIDE);
 

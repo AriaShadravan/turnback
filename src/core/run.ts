@@ -17,10 +17,13 @@ export interface RunResult {
  * then turn end. The turn is recorded even when the command fails or is interrupted.
  */
 export function runAsTurn(cwd: string, argv: string[], label?: string): RunResult {
-  const command = argv.length === 1 ? argv[0] : argv.map(quoteForShell).join(' ');
+  const join = (platform: NodeJS.Platform) => argv.length === 1 ? argv[0] : argv.map(a => quoteForShell(a, platform)).join(' ');
+  // What runs is quoted for this platform's shell; what is recorded stays readable (sh quoting).
+  const command = join(process.platform);
+  const shown = join('linux');
   const base: Omit<HookEvent, 'kind'> = { agent: 'manual', session: 'run', turn: randomUUID(), cwd };
-  record({ ...base, kind: 'turn-start', prompt: label ?? command });
-  const before = record({ ...base, kind: 'shell', command });
+  record({ ...base, kind: 'turn-start', prompt: label ?? shown });
+  const before = record({ ...base, kind: 'shell', command: shown });
 
   // Ctrl+C reaches the command directly; Turnback stays alive to record the end of the turn.
   const ignore = () => {};
@@ -43,8 +46,15 @@ export function changedFiles(cwd: string, turn: string): { index: number; files:
   return index < 0 ? undefined : { index: index + 1, files: store.summarize(turns[index]).changedFiles };
 }
 
+/** Characters cmd.exe treats specially, escaped with `^` (the rule cross-spawn uses). */
+const CMD_META = /([()\][%!^"`<>&|;, *?])/g;
+
 /** Quote one argument for the shell Node uses with `shell: true`: cmd.exe on Windows, sh elsewhere. */
-function quoteForShell(arg: string): string {
-  if (/^[\w@%+=:,./\\-]+$/.test(arg)) return arg;
-  return process.platform === 'win32' ? `"${arg.replaceAll('"', '""')}"` : `'${arg.replaceAll("'", `'\\''`)}'`;
+export function quoteForShell(arg: string, platform = process.platform): string {
+  if (platform !== 'win32') return /^[\w@%+=:,./-]+$/.test(arg) ? arg : `'${arg.replaceAll("'", `'\\''`)}'`;
+  if (/^[\w@+=:,./\\-]+$/.test(arg)) return arg;
+  // Quote for the program's argument parser (backslashes before a quote are doubled),
+  // then escape every cmd.exe metacharacter, quotes included, so `%VAR%` is never expanded.
+  const quoted = `"${arg.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\*)$/, '$1$1')}"`;
+  return quoted.replace(CMD_META, '^$1');
 }

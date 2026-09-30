@@ -52,3 +52,10 @@ it('says commands, not agents, when every turn came from turnback run', () => {
   expect(statsCard({ ...s, byAgent: { manual: 2 } })).toContain('Commands deleted 2 files this week.');
   expect(statsCard({ ...s, byAgent: { manual: 1, codex: 1 } })).toContain('Agents deleted 2 files this week.');
 });
+
+it('does not claim anything was kept when nothing was restored', () => {
+  const s = turnStats(twoTurns(), 7);
+  const card = statsCard({ ...s, restores: 0, restoredFiles: 0 });
+  expect(card).not.toContain('kept a copy');
+  expect(card).toContain('Nothing needed undoing.');
+});

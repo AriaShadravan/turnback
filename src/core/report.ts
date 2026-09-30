@@ -2,6 +2,7 @@ import { formatTime } from './format.js';
 import type { NameStatus } from '../git/shadow.js';
 import type { Store } from './store.js';
 import type { Turn } from './types.js';
+import { SENSITIVE } from './warnings.js';
 
 const STATUS = { A: 'added', M: 'modified', D: 'deleted', T: 'type changed' } as const;
 /** Same limit as `turnback ui`, per turn. */
@@ -63,6 +64,8 @@ export function sessionReport(store: Store, session?: string): string {
 const ENTITIES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 const esc = (text: string) => text.replace(/[&<>"']/g, c => ENTITIES[c]);
 
+const isSecret = (p: string) => SENSITIVE.test(p.split('/').at(-1)!);
+
 /** One `<span>` per diff line, colored by its first character. */
 function diffHtml(diff: string): string {
   return diff.split('\n').map(line => {
@@ -78,13 +81,15 @@ export function htmlReport(store: Store, session?: string, maxDiff = MAX_DIFF_CH
   if (!report) throw new Error('No turns recorded yet.');
   const { id, turns } = report;
   const sections = turns.map(({ turn, prompt, changes, commands }, i) => {
-    const diff = turn.end ? store.repo.diffPatch(turn.baseline, turn.end) : '';
+    // The page is meant to be shared: never include the contents of files that usually hold secrets.
+    const shareable = changes.map(c => c.path).filter(p => !isSecret(p));
+    const diff = turn.end && shareable.length ? store.repo.diffPatch(turn.baseline, turn.end, shareable) : '';
     const cut = diff.length > maxDiff;
     return `<section>
 <h2>${i + 1}. ${esc(prompt ?? '(no prompt)')}</h2>
 <p class="meta">${esc(turn.agent)} · ${esc(formatTime(turn.time))} · ${files(changes.length)}${turn.status === 'ok' ? '' : ' · partial'} · <code>${esc(turn.id)}</code></p>
 ${commands.length ? `<p>Commands: ${commands.map(c => `<code>${esc(c)}</code>`).join(' ')}</p>` : ''}
-${changes.length ? `<ul>${changes.map(c => `<li><code>${esc(c.path)}</code> <span class="${c.status}">${STATUS[c.status]}</span></li>`).join('')}</ul>` : ''}
+${changes.length ? `<ul>${changes.map(c => `<li><code>${esc(c.path)}</code> <span class="${c.status}">${STATUS[c.status]}</span>${isSecret(c.path) ? ' (content hidden)' : ''}</li>`).join('')}</ul>` : ''}
 ${diff ? `<details><summary>Diff</summary><pre>${diffHtml(diff.slice(0, maxDiff))}</pre>${cut ? `<p class="meta">Diff cut at ${maxDiff} characters; see <code>turnback diff ${esc(turn.id)}</code>.</p>` : ''}</details>` : ''}
 </section>`;
   });

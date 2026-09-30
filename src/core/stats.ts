@@ -69,7 +69,7 @@ export function statsCard(s: TurnStats): string {
   // `turnback run` turns are commands the user ran, not an agent's work.
   const who = s.turns && Object.keys(s.byAgent).every(a => a === 'manual') ? 'Commands' : 'Agents';
   const headline = `${who} deleted ${count(s.deleted, 'file')} ${period}.`;
-  const saved = s.restoredFiles ? `Turnback brought back ${count(s.restoredFiles, 'file')}.` : 'Turnback kept a copy of every one.';
+  const saved = s.restoredFiles ? `Turnback brought back ${count(s.restoredFiles, 'file')}.` : 'Nothing needed undoing.';
   const detail = `${count(s.turns, 'turn')} (${agents(s) || 'no agents'}) · ${s.created} created · ${s.modified} changed · ${count(s.commands, 'shell command')}`;
   const font = `font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
