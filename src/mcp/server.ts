@@ -3,6 +3,7 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import * as z from 'zod/v4';
 import { VERSION } from '../core/config.js';
 import { formatSteps, formatTurns } from '../core/format.js';
+import { compareTurns } from '../core/compare.js';
 import { sessionReport } from '../core/report.js';
 import { applyRestore, planRestore, redoTarget } from '../core/restore.js';
 import { Store } from '../core/store.js';
@@ -62,6 +63,18 @@ export function createServer(): McpServer {
     try {
       const steps = storeFor(workspace).steps(turn);
       return result({ turn, steps }, formatSteps(steps));
+    } catch (e) { return failure(e); }
+  });
+
+  server.registerTool('compare_turns', {
+    description: 'Compare the results of two turns: files changed only by one, by both with different or identical results, and the diff from A to B',
+    inputSchema: z.object({ a: z.string(), b: z.string(), workspace: workspaceParam }),
+    annotations: { readOnlyHint: true },
+  }, async ({ a, b, workspace }) => {
+    try {
+      const c = compareTurns(storeFor(workspace), a, b);
+      const patch = c.patch.slice(0, MAX_DIFF_CHARS);
+      return result({ ...c, patch, truncated: c.patch.length > MAX_DIFF_CHARS }, `only A: ${c.onlyA.length}, only B: ${c.onlyB.length}, different: ${c.both.length}, same: ${c.same.length}`);
     } catch (e) { return failure(e); }
   });
 

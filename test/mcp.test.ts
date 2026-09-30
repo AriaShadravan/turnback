@@ -29,7 +29,7 @@ it('serves read tools and a two-step restore', async () => {
   const client = await connect(new Client({ name: 'test', version: '1.0.0' }));
   try {
     const { tools } = await client.listTools();
-    expect(tools.map(t => t.name).sort()).toEqual(['diff_turn', 'list_turns', 'redo', 'restore', 'session_report', 'status', 'turn_steps']);
+    expect(tools.map(t => t.name).sort()).toEqual(['compare_turns', 'diff_turn', 'list_turns', 'redo', 'restore', 'session_report', 'status', 'turn_steps']);
     expect(tools.find(t => t.name === 'restore')?.annotations?.destructiveHint).toBe(true);
     expect(tools.find(t => t.name === 'list_turns')?.annotations?.readOnlyHint).toBe(true);
     expect((await call(client, 'list_turns', {})).data.turns[0].changedFiles).toBe(1);

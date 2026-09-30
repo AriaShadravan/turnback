@@ -7,6 +7,7 @@ import { hookResponse, parseHook } from '../agents/adapters.js';
 import { dataHome } from '../core/config.js';
 import { parseArgs, type Args } from './args.js';
 import { exportCommit, exportPatch } from '../core/export.js';
+import { compareTurns } from '../core/compare.js';
 import { sessionReport } from '../core/report.js';
 import { formatMarks, formatSteps, formatTurns } from '../core/format.js';
 import { install, uninstall } from '../agents/install.js';
@@ -28,6 +29,7 @@ const USAGE = `Usage:
   turnback undo | redo [--dry-run | --yes]
   turnback export <turn...> [--out <file.patch>] | --commit [--message <text>]
   turnback report [--session <id>]
+  turnback compare <turnA> <turnB> [--json]
   turnback ui [--port <n>] [--no-open]
   turnback mcp`;
 
@@ -164,6 +166,19 @@ async function main(): Promise<void> {
         writeFileSync(path.resolve(out), patch);
         output(`Wrote ${out}. Apply it with: git apply ${shellArg(out) ?? out}`);
       } else process.stdout.write(patch);
+      return;
+    }
+    case 'compare': {
+      const [a, b] = args.positional;
+      if (!a || !b) throw new Error('Usage: turnback compare <turnA> <turnB>');
+      const c = compareTurns(store, a, b);
+      if (args.flags.has('--json')) return output(c);
+      output([
+        `A: ${c.a}`, `B: ${c.b}`,
+        `Only A: ${c.onlyA.join(', ') || '-'}`, `Only B: ${c.onlyB.join(', ') || '-'}`,
+        `Both, different: ${c.both.join(', ') || '-'}`, `Both, same: ${c.same.join(', ') || '-'}`,
+        '', c.patch,
+      ].join('\n'));
       return;
     }
     case 'report':
