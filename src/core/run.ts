@@ -1,15 +1,28 @@
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { constants } from 'node:os';
 import { record } from './recorder.js';
 import { Store } from './store.js';
 import type { HookEvent } from './types.js';
 
 export interface RunResult {
-  /** Exit code of the command; 130 when it was ended by a signal. */
+  /** Exit code of the command, shell style: 128 + the signal number when a signal ended it. */
   status: number;
   turn: string;
   /** Why the snapshot before the command did not succeed, if it did not. */
   unprotected?: string;
+  /** Why the end of the turn could not be recorded, if it could not. */
+  endError?: string;
+}
+
+/** Signals that end the command but must leave Turnback alive to record the end of the turn. */
+const HELD_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
+
+/** How a child process ended, as a shell reports it: its code, 128 + signal number, or 127 when it never started. */
+export function exitStatus(child: { status: number | null; signal: NodeJS.Signals | null; error?: Error }): number {
+  if (child.error) return 127;
+  if (child.status !== null) return child.status;
+  return 128 + (child.signal ? constants.signals[child.signal] ?? 2 : 2);
 }
 
 /**
@@ -25,16 +38,21 @@ export function runAsTurn(cwd: string, argv: string[], label?: string): RunResul
   record({ ...base, kind: 'turn-start', prompt: label ?? shown });
   const before = record({ ...base, kind: 'shell', command: shown });
 
-  // Ctrl+C reaches the command directly; Turnback stays alive to record the end of the turn.
+  // Ctrl+C, a closed terminal, or a kill reach the command directly; Turnback stays alive to record the end of the turn.
   const ignore = () => {};
-  process.on('SIGINT', ignore);
+  for (const signal of HELD_SIGNALS) process.on(signal, ignore);
   try {
     const child = spawnSync(command, { cwd, shell: true, stdio: 'inherit', windowsHide: true });
-    record({ ...base, kind: 'turn-end' });
-    const status = child.error ? 127 : child.status ?? 130;
-    return { status, turn: base.turn, unprotected: before?.status === 'ok' ? undefined : before?.note ?? before?.status ?? 'not recorded' };
+    let endError: string | undefined;
+    try {
+      record({ ...base, kind: 'turn-end' });
+    } catch (e) {
+      endError = e instanceof Error ? e.message : String(e);
+    }
+    const unprotected = before?.status === 'ok' ? undefined : before?.note ?? before?.status ?? 'not recorded';
+    return { status: exitStatus(child), turn: base.turn, unprotected, endError };
   } finally {
-    process.off('SIGINT', ignore);
+    for (const signal of HELD_SIGNALS) process.off(signal, ignore);
   }
 }
 

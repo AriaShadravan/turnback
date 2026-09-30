@@ -290,3 +290,10 @@ it('prints the version with --version, -v, and version', () => {
     expect(r.stdout).toBe(`${version}\n`);
   }
 }, 30_000);
+
+it('leaves the agent note out of --json restores of turnback run turns', () => {
+  const p = tempProject('turnback-run-json-');
+  p.write('a.txt', 'a\n');
+  cli(p.root, p.home, ['run', '--', process.execPath, '-e', "require('fs').writeFileSync('a.txt', 'b')"]);
+  expect(cli(p.root, p.home, ['undo', '--yes', '--json']).stdout).not.toContain('conversation');
+}, 30_000);

@@ -109,6 +109,7 @@ function runCommand(rest: string[]): void {
   const result = runAsTurn(cwd, argv, own.values.get('--label'));
   const summary = changedFiles(cwd, result.turn);
   const lines = [];
+  if (result.endError) lines.push(`turnback: the end of this turn was not recorded (${result.endError}); see turnback status.`);
   if (result.unprotected) lines.push(`turnback: the files before this command were not saved (${result.unprotected}); see turnback status.`);
   if (summary) {
     lines.push(`turnback: recorded as turn #${summary.index}: ${summary.files} ${summary.files === 1 ? 'file' : 'files'} changed. Undo with: turnback undo --yes`);
@@ -132,7 +133,7 @@ function applyPlan(store: Store, operation: Operation, target: string, paths: st
   const result = applyRestore(store, target, { paths, token: plan.token, operation });
   if (json) {
     output({ applied: result.applied, failed: result.failed, safety: result.safety });
-    output('Agent conversation context is not restored; tell the agent what changed.');
+    if (agentTurn) output('Agent conversation context is not restored; tell the agent what changed.');
   } else {
     output(formatRestoreResult(result, operation, agentTurn));
   }
