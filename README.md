@@ -1,8 +1,29 @@
 # Turnback
 
-Turnback records file state before and during a coding agent's turn, then restores it through the CLI or MCP. The shadow Git repo lives in `~/.turnback` (or `TURNBACK_HOME`), separate from the project's `.git`.
+**Undo for AI coding agents, even after `rm -rf`.**
 
-Supports Claude Code, Codex, Gemini CLI, Cursor, OpenCode, and Antigravity CLI. Requires Node.js 22+ and Git 2.25+. Claude Code, Codex, OpenCode, and Antigravity CLI have been tested live; Gemini CLI and Cursor are covered by tests built from their documented hook payloads.
+One undo history for Claude Code, Codex, Cursor, Gemini CLI, OpenCode, and Antigravity CLI.
+
+[![npm](https://img.shields.io/npm/v/turnback)](https://www.npmjs.com/package/turnback)
+[![CI](https://github.com/MFaizR77/turnback/actions/workflows/ci.yml/badge.svg)](https://github.com/MFaizR77/turnback/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+![An agent runs rm -rf src .env; turnback undo brings both back](docs/demo.gif)
+
+<sub>A real Turnback run. The agent is simulated with Claude Code's hook payloads; the `rm -rf` and every Turnback line are real. Recreate it with `python scripts/demo/make_demo.py`.</sub>
+
+## Why
+
+Agent checkpoints track the agent's own edit tools. Claude Code's documentation says it plainly: ["Checkpointing does not track files modified by Bash commands."](https://code.claude.com/docs/en/checkpointing#bash-command-changes-not-tracked) So when an agent runs `rm -rf`, `mv`, a code generator, or `git checkout -- .`, rewind cannot bring those files back.
+
+Turnback snapshots the workspace before every shell command and edit, into a shadow git repo under `~/.turnback`:
+
+- Undo a whole turn, or go back to just before one step of it.
+- Tracked, untracked, and gitignored files (like `.env`) up to 5 MB are covered.
+- Nothing writes to your project's `.git` unless you run `turnback export --commit`, and hooks never block the agent.
+- One history across six agents. Through MCP, the agent can list and diff its own turns and restore them in two steps: a plan first, then the change.
+
+## Install
 
 In Claude Code:
 
@@ -11,32 +32,47 @@ claude plugin marketplace add MFaizR77/turnback
 claude plugin install turnback@turnback
 ```
 
-Then use `/turnback:turns`, `/turnback:diff-turn`, `/turnback:undo`, and `/turnback:report`. For other agents, or to use the CLI directly:
+Then use `/turnback:turns`, `/turnback:diff-turn`, `/turnback:undo`, and `/turnback:report`.
+
+For Codex, Cursor, Gemini CLI, OpenCode, Antigravity CLI, or the CLI on its own (Node.js 22+ and Git 2.25+):
 
 ```bash
 npm install -g turnback
-turnback install all --project
-turnback list
-turnback diff <turn-id>
-turnback undo --dry-run
-turnback undo --yes
-turnback steps <turn-id>
-turnback restore <turn-id> --before-step 3 --dry-run
-turnback log src/app.ts
-turnback mark "before migration"
-turnback ui
-turnback search login
-turnback report
-turnback compare <turn-a> <turn-b>
-turnback export <turn-id> --out turn.patch
-turnback export <turn-id> --commit
+turnback install all            # user-level hooks and MCP for every agent
+turnback install codex --project  # or one agent, in this project only
 ```
 
-`install all` without `--project` installs the user-level config. `uninstall all [--project]` removes only Turnback entries. `--no-mcp` installs hooks without MCP. Other config is kept.
+Claude Code, Codex, OpenCode, and Antigravity CLI have been tested live; Gemini CLI and Cursor are covered by tests built from their documented hook payloads. Details per agent: [installation](guide/INSTALL.md).
 
-Available commands: `install`, `uninstall`, `list`, `steps`, `log`, `search`, `diff`, `status`, `restore`, `undo`, `redo`, `mark`, `marks`, `report`, `compare`, `export`, `ui`, `gc`, and `mcp`. `search <text>` finds turns by prompt, command, or path. `report` writes a markdown summary of the latest session (`--session <id>` for another). `compare <a> <b>` shows how two turns' results differ, for example two agents given the same task. `export <turn...>` prints a patch (`--out` writes it to a file); `export --commit` commits just those turns' files to your repository with the prompt as message, and refuses if they changed since. It is the only command that writes to your own git repository. `steps <turn>` lists each edit and shell command of a turn; `restore <turn> --before-step N` returns to just before step N and keeps the earlier steps. `log <file|folder>` lists the turns that changed it. `mark <label>` saves the whole workspace as a checkpoint that `restore <label>` returns to. `ui` opens a read-only timeline of turns, steps, and diffs in the browser. `restore <turn> --path <file> --dry-run` shows the plan. `--yes` applies it. `redo --yes` returns to the safety snapshot taken before the last restore. Restoring changes project files; the agent's conversation context is not restored. `list` shows each turn's prompt, agent, and changed files; `list --json` prints the raw data. Set `{"prompts": false}` in `~/.turnback/config.json` to stop recording prompts.
+## Compared with Claude Code's `/rewind`
 
-Documentation: [installation](guide/INSTALL.md), [restore](guide/RESTORE.md), [MCP](guide/MCP.md), and [scope](guide/LIMITS.md).
+| | `/rewind` | Turnback |
+|---|---|---|
+| Edits made by the agent's edit tools | ✅ | ✅ |
+| Files changed by shell commands (`rm`, `mv`, codegen) | ❌ | ✅ |
+| Untracked and gitignored files | only files its edit tools changed | ✅ up to 5 MB |
+| Other agents | ❌ | Codex, Cursor, Gemini CLI, OpenCode, Antigravity CLI |
+| Go back to a point inside a turn | ❌ | ✅ `--before-step` |
+| Rewind the conversation | ✅ | ❌ files only |
+
+They work side by side: rewind the conversation with `/rewind`, and the files with Turnback.
+
+## Everyday use
+
+```bash
+turnback list                       # recent turns with their prompts
+turnback diff <turn>                # what a turn changed
+turnback undo --dry-run             # show the plan
+turnback undo --yes                 # undo the latest turn
+turnback redo --yes                 # changed your mind
+turnback steps <turn>               # each edit and shell command in a turn
+turnback restore <turn> --before-step 3 --yes
+turnback mark "before migration"    # a checkpoint of your own
+turnback ui                         # timeline in the browser
+```
+
+All commands, including `log`, `search`, `report`, `compare`, and `export`: [commands](guide/COMMANDS.md). More: [restore](guide/RESTORE.md), [MCP](guide/MCP.md), [scope and limits](guide/LIMITS.md).
+
 
 ## How it works
 
