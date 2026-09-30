@@ -14,9 +14,9 @@ import { install, uninstall } from '../agents/install.js';
 import { shellArg } from '../core/quote.js';
 import { pendingForeignRoots, record } from '../core/recorder.js';
 import { turnWarning } from '../core/warnings.js';
-import { applyRestore, planRestore, redoTarget, undoTarget, type Operation } from '../core/restore.js';
+import { applyRestore, findRecoverable, planRestore, redoTarget, undoTarget, type Operation } from '../core/restore.js';
 import { Store } from '../core/store.js';
-import type { Agent, HookEvent } from '../core/types.js';
+import type { Agent, HookEvent, Turn } from '../core/types.js';
 
 const USAGE = `Usage:
   turnback install|uninstall <claude|codex|gemini|cursor|opencode|antigravity|all> [--project] [--no-mcp]
@@ -28,6 +28,7 @@ const USAGE = `Usage:
   turnback mark <label> | marks [--json]
   turnback restore <turn|mark|snapshot> [--before-step <n>] [--path <p>...] [--dry-run | --yes] [--json]
   turnback undo | redo [--dry-run | --yes] [--json]
+  turnback recover <file> [--dry-run | --yes] [--json]
   turnback export <turn...> [--out <file.patch>] | --commit [--message <text>]
   turnback report [--session <id>]
   turnback compare <turnA> <turnB> [--json]
@@ -81,11 +82,16 @@ function runRestore(store: Store, operation: Operation, args: Args): void {
     : args.positional[0];
   if (!target) throw new Error(operation === 'restore' ? 'Missing target turn or snapshot' : `Nothing to ${operation}`);
   const paths = args.paths.length ? args.paths : undefined;
+  applyPlan(store, operation, target, paths, planTitle(store, operation, target, args.positional[0], step), args);
+}
+
+/** Print a restore plan, then apply it when `--yes` is given. */
+function applyPlan(store: Store, operation: Operation, target: string, paths: string[] | undefined, title: string, args: Args): void {
   const plan = planRestore(store, target, paths);
   const json = args.flags.has('--json');
   output(json
     ? { target, scope: plan.scope, actions: plan.actions, skippedLarge: plan.skippedLarge }
-    : formatPlan(planTitle(store, operation, target, args.positional[0], step), plan, args.flags.has('--yes') && !args.flags.has('--dry-run')));
+    : formatPlan(title, plan, args.flags.has('--yes') && !args.flags.has('--dry-run')));
   if (args.flags.has('--dry-run')) return;
   if (!args.flags.has('--yes')) {
     output('Use --yes to apply this plan.');
@@ -101,13 +107,17 @@ function runRestore(store: Store, operation: Operation, args: Args): void {
   if (result.failed.length) process.exitCode = 1;
 }
 
+/** `turn "<prompt>" (<agent>, <time>)`, or the turn ID when it has no prompt. */
+function describeTurn(turn: Turn): string {
+  const prompt = turn.entries.find(e => e.kind === 'turn-start')?.prompt;
+  return `turn ${prompt ? JSON.stringify(prompt) : turn.id} (${turn.agent}, ${formatTime(turn.time)})`;
+}
+
 /** First line of a restore plan: what is being undone, named by its prompt when there is one. */
 function planTitle(store: Store, operation: Operation, target: string, requested?: string, step?: string): string {
   const describe = (id: string) => {
     const turn = store.findTurn(id);
-    if (!turn) return undefined;
-    const prompt = turn.entries.find(e => e.kind === 'turn-start')?.prompt;
-    return `turn ${prompt ? JSON.stringify(prompt) : turn.id} (${turn.agent}, ${formatTime(turn.time)})`;
+    return turn && describeTurn(turn);
   };
   if (operation === 'undo') return `Undo ${describe(target) ?? target}`;
   if (operation === 'redo') return 'Redo: return to the files as they were before the last restore';
@@ -228,6 +238,23 @@ async function main(): Promise<void> {
     case 'redo':
       runRestore(store, command, args);
       return;
+    case 'recover': {
+      const file = args.positional[0];
+      if (!file) throw new Error('Missing file');
+      const abs = path.resolve(file);
+      const found = findRecoverable(store, abs);
+      if (!found) {
+        output(`No snapshot has a version of ${file} that differs from the file on disk.`);
+        process.exitCode = 1;
+        return;
+      }
+      const mark = store.marks().find(m => m.ref === found.ref);
+      const from = found.turn ? describeTurn(found.turn)
+        : mark ? `mark ${JSON.stringify(mark.label)}`
+        : `the snapshot of ${formatTime(found.entry.time)}`;
+      applyPlan(store, 'restore', found.ref, [abs], `Recover ${store.workspace.relative(abs)} from ${from}`, args);
+      return;
+    }
     default:
       output(USAGE);
       if (command && command !== 'help' && command !== '--help') process.exitCode = 2;

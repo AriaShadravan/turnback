@@ -11,6 +11,7 @@ Every command prints text for people. Where noted, `--json` prints the raw data 
 | `undo [--dry-run \| --yes] [--json]` | Returns the files to how they were before the latest turn. Run again to go one turn further back. |
 | `redo [--dry-run \| --yes] [--json]` | Returns to the safety snapshot taken before the last restore or undo. |
 | `restore <turn\|mark\|snapshot> [--path <p>...] [--dry-run \| --yes] [--json]` | Returns to the start of a turn, a mark, or a snapshot ref. `--path` limits it to some files. Without `--yes` it only prints the plan. |
+| `recover <file> [--dry-run \| --yes] [--json]` | Brings back one file: the newest snapshot whose version differs from the file on disk, or, for a deleted file, the last snapshot that still had it. Other files are left alone. |
 | `steps <turn> [--json]` | Each edit and shell command of a turn. |
 | `restore <turn> --before-step N` | Returns to just before step N and keeps the earlier steps. |
 | `log <file\|folder> [--json]` | Turns that changed that path. |

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { isInside, MAX_FILE_BYTES, pathKey, sha256, sleep } from './config.js';
 import type { TreeItem } from '../git/shadow.js';
 import type { Store } from './store.js';
-import type { Entry } from './types.js';
+import type { Entry, Turn } from './types.js';
 import type { FileState } from '../workspace/workspace.js';
 
 export type Operation = 'restore' | 'undo' | 'redo';
@@ -194,6 +194,34 @@ export function redoTarget(store: Store): string | undefined {
     else if (e.kind === 'redo') stack.pop();
   }
   return stack.at(-1);
+}
+
+export interface Recoverable {
+  ref: string;
+  entry: Entry;
+  /** The turn whose snapshot holds that version, if any. */
+  turn?: Turn;
+}
+
+/**
+ * Newest snapshot holding a version of `absPath` that differs from the file on disk:
+ * for a deleted file, the last snapshot that still had it.
+ */
+export function findRecoverable(store: Store, absPath: string): Recoverable | undefined {
+  const rel = store.workspace.relative(absPath);
+  if (!rel) throw new Error(`Path outside workspace: ${absPath}`);
+  if (store.mode() === 'edits-only') throw new Error('recover needs full snapshots; this workspace is in edits-only mode');
+  const have = store.workspace.fileState(rel, store.repo.objectIdLength());
+  const seen = new Set<string>();
+  for (const entry of store.entries().reverse()) {
+    if (entry.status !== 'ok' || !entry.ref || seen.has(entry.ref) || !store.repo.refExists(entry.ref)) continue;
+    seen.add(entry.ref);
+    const want = store.repo.tree(entry.ref).get(rel);
+    if (!want || (have && sameFile(want, have))) continue;
+    const turn = store.turns().find(t => t.entries.some(e => e.id === entry.id));
+    return { ref: entry.ref, entry, turn };
+  }
+  return undefined;
 }
 
 /** Snapshot ref for a turn (its baseline), a mark label, or a ref. */

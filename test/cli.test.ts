@@ -168,3 +168,27 @@ it('prints status and install results as text, with --json for the raw data', ()
   expect(JSON.parse(cli(p.root, p.home, ['status', '--json']).stdout).turns).toBe(0);
   expect(cli(p.root, p.home, ['uninstall', 'claude', '--project']).stdout).toMatch(/^Removed Turnback from:\n {2}\.claude\/settings\.json/);
 }, 30_000);
+
+it('recovers one deleted file through the CLI', () => {
+  const p = tempProject('turnback-recover-cli-');
+  p.write('gone.txt', 'keep\n');
+  p.write('other.txt', 'o\n');
+  const send = (payload: object) => cli(p.root, p.home, ['hook', 'claude'], JSON.stringify({ session_id: 's', cwd: p.root, ...payload }));
+  send({ hook_event_name: 'UserPromptSubmit', prompt: 'tidy up' });
+  send({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'rm gone.txt other.txt' } });
+  rmSync(p.file('gone.txt'));
+  rmSync(p.file('other.txt'));
+  send({ hook_event_name: 'Stop' });
+
+  const dry = cli(p.root, p.home, ['recover', 'gone.txt', '--dry-run']);
+  expect(dry.stdout).toMatch(/^Recover gone\.txt from turn "tidy up" \(claude, /);
+  expect(dry.stdout).toMatch(/^ {2}restore +gone\.txt$/m);
+  expect(dry.stdout).not.toContain('other.txt');
+  expect(cli(p.root, p.home, ['recover', 'gone.txt', '--yes']).status).toBe(0);
+  expect(p.read('gone.txt')).toBe('keep\n');
+  expect(existsSync(p.file('other.txt'))).toBe(false);
+
+  const none = cli(p.root, p.home, ['recover', 'never.txt']);
+  expect(none.status).toBe(1);
+  expect(none.stdout).toContain('No snapshot has a version of never.txt');
+}, 30_000);
