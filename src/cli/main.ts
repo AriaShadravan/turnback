@@ -40,8 +40,8 @@ function output(value: unknown): void {
   process.stdout.write(typeof value === 'string' ? value + '\n' : JSON.stringify(value, null, 2) + '\n');
 }
 
-const configFiles = (args: Args, heading: string, files: string[]) =>
-  args.flags.has('--json') ? files : formatConfigFiles(heading, files, process.cwd());
+const configFiles = (args: Args, heading: string, files: string[], root: string) =>
+  args.flags.has('--json') ? files : formatConfigFiles(heading, files, root);
 
 /** Hook entry point: always answers "allow", whatever happens while recording. */
 async function runHook(agent: Agent, eventName?: string): Promise<void> {
@@ -132,11 +132,11 @@ async function main(): Promise<void> {
       return;
     case 'install':
       output(configFiles(args, 'Installed Turnback in',
-        install(args.positional[0] ?? 'all', args.flags.has('--project'), store.root, CLI, !args.flags.has('--no-mcp'))));
+        install(args.positional[0] ?? 'all', args.flags.has('--project'), store.root, CLI, !args.flags.has('--no-mcp')), store.root));
       warmInBackground(store.root);
       return;
     case 'uninstall':
-      output(configFiles(args, 'Removed Turnback from', uninstall(args.positional[0] ?? 'all', args.flags.has('--project'), store.root)));
+      output(configFiles(args, 'Removed Turnback from', uninstall(args.positional[0] ?? 'all', args.flags.has('--project'), store.root), store.root));
       return;
     case 'list': {
       const turns = store.turns().map(t => store.summarize(t));

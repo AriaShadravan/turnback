@@ -92,11 +92,11 @@ export function formatStatus(s: ReturnType<Store['status']>): string {
   return rows.map(([k, v]) => `${k.padEnd(10)}${v}`).join('\n');
 }
 
-/** Config files written or cleaned by install/uninstall, relative to `cwd` when inside it. */
-export function formatConfigFiles(heading: string, files: string[], cwd: string): string {
+/** Config files written or cleaned by install/uninstall, relative to the workspace root when inside it. */
+export function formatConfigFiles(heading: string, files: string[], root: string): string {
   if (!files.length) return `${heading}: nothing to change.`;
   const shown = files.map(f => {
-    const rel = path.relative(cwd, f);
+    const rel = path.relative(root, f);
     return rel && !rel.startsWith('..') && !path.isAbsolute(rel) ? rel.replaceAll('\\', '/') : f;
   });
   return `${heading}:\n${shown.map(f => `  ${f}`).join('\n')}`;
